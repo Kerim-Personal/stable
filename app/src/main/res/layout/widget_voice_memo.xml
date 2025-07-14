@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/voice_widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:background="@drawable/widget_background">
+
+    <ImageButton
+        android:id="@+id/btn_record_voice"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:src="@drawable/ic_microphone_24"
+        android:background="@android:color/transparent"
+        android:contentDescription="@string/start_voice_recording_desc"
+        android:scaleType="fitCenter" />
+
+    <TextView
+        android:id="@+id/tv_widget_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/tap_to_record"
+        android:textColor="@android:color/black"
+        android:textSize="12sp"
+        android:layout_marginTop="4dp"/>
+
+    <TextView
+        android:id="@+id/tv_widget_timer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="00:00"
+        android:textColor="@android:color/black"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:layout_marginTop="4dp"
+        android:visibility="gone" />
+
+</LinearLayout>

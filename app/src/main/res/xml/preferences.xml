@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory
+        android:title="@string/appearance_category_title">
+
+        <ListPreference
+            android:key="theme_selection"
+            android:title="@string/theme_title"
+            android:defaultValue="system_default"
+            android:entries="@array/theme_entries"
+            android:entryValues="@array/theme_values"
+            app:icon="@drawable/ic_theme" />
+
+        <ListPreference
+            android:key="color_selection"
+            android:title="@string/app_color_title"
+            android:defaultValue="purple"
+            android:entries="@array/color_theme_entries"
+            android:entryValues="@array/color_theme_values"
+            app:icon="@drawable/outline_palette_24" />
+
+        <ListPreference
+            android:key="widget_background_selection"
+            android:title="@string/widget_background_title"
+            android:defaultValue="widget_background"
+            android:entries="@array/widget_background_entries"
+            android:entryValues="@array/widget_background_values"
+            app:icon="@drawable/ic_image_24" />
+
+        <Preference
+            android:key="add_widget_shortcut"
+            android:title="@string/add_widget_title"
+            android:summary="@string/add_widget_summary"
+            app:icon="@drawable/outline_widgets_24" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/data_management_title">
+
+        <Preference
+            android:key="google_drive_backup"
+            android:title="@string/backup_to_drive_title"
+            android:summary="@string/backup_to_drive_summary"
+            app:icon="@drawable/cloud_upload" />
+
+        <Preference
+            android:key="google_drive_restore"
+            android:title="@string/restore_from_drive_title"
+            android:summary="@string/restore_from_drive_summary"
+            app:icon="@drawable/cloud_download" />
+
+        <Preference
+            android:key="delete_account"
+            android:title="@string/delete_account_title"
+            android:summary="@string/delete_account_summary"
+            app:icon="@drawable/outline_delete_24" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/other_settings_category_title">
+
+        <Preference
+            android:key="password_settings"
+            android:title="@string/password_settings_title"
+            android:summary="@string/password_settings_summary"
+            app:icon="@drawable/ic_lock_24" />
+
+        <Preference
+            android:key="trash_settings"
+            android:title="@string/trash_bin_title"
+            android:summary="@string/trash_bin_summary"
+            app:icon="@drawable/outline_archive_24" />
+
+        <Preference
+            android:key="privacy_policy"
+            android:summary="@string/privacy_policy_summary"
+            android:title="@string/privacy_policy_title"
+            app:icon="@drawable/ic_privacy" />
+
+        <Preference
+            android:key="contact_us"
+            android:summary="@string/contact_us_summary"
+            android:title="@string/contact_us_title"
+            app:icon="@drawable/ic_contact" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

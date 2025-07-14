@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="color_theme_entries">
+        <item>Bordo</item>
+        <item>Okyanus Mavisi</item>
+        <item>Orman Yeşili</item>
+        <item>Gül</item>
+        <item>Camgöbeği</item>
+        <item>Çivit Mavisi</item>
+        <item>Turuncu</item>
+        <item>Kahverengi</item>
+        <item>Gri</item>
+        <item>Siyan</item>
+        <item>Misket Limonu</item>
+    </string-array>
+</resources>

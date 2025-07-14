@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:paddingTop="8dp"
+    android:background="@drawable/widget_background">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <ListView
+            android:id="@+id/lv_widget_notes"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="@null"
+            android:paddingHorizontal="8dp"
+            android:dividerHeight="0dp" />
+
+        <TextView
+            android:id="@+id/tv_widget_empty"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:padding="16dp"
+            android:text="@string/widget_empty_view_text"
+            android:textColor="@android:color/darker_gray"
+            android:textSize="16sp" />
+
+    </FrameLayout>
+
+    <Button
+        android:id="@+id/btn_widget_new"
+        style="?android:attr/borderlessButtonStyle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:text="@string/widget_new_note_button"
+        android:textColor="@android:color/holo_blue_dark"
+        android:layout_marginTop="4dp"/>
+
+</LinearLayout>

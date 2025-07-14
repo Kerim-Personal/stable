@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SnapNote</string>
+    <string name="ok">Tamam</string>
+    <string name="dialog_cancel">İptal</string>
+    <string name="dialog_yes">Evet</string>
+    <string name="dialog_no">Hayır</string>
+    <string name="confirm_button">Onayla</string>
+    <string name="stop">Durdur</string>
+    <string name="saved">Kaydedildi</string>
+    <string name="play">Oynat</string>
+    <string name="pause">Duraklat</string>
+    <string name="error_dialog_title">Uygulama Bulunamadı</string>
+
+    <string name="search_title">Ara</string>
+    <string name="sort_title">Sırala</string>
+    <string name="action_share">Paylaş</string>
+    <string name="action_delete">Sil</string>
+    <string name="add_note_fab_description">Yeni Not Ekle</string>
+    <string name="empty_notes_message">Henüz hiç notunuz yok.</string>
+
+    <string name="title_activity_new_note">Yeni Not Ekle</string>
+    <string name="title_activity_edit_note">Notu Düzenle</string>
+    <string name="button_save">Kaydet</string>
+    <string name="hint_note_title">Başlık</string>
+    <string name="hint_note_content">Notunuzu buraya yazın…</string>
+    <string name="toast_empty_note">Not içeriği boş olamaz!</string>
+    <string name="creation_date_label">Oluşturuldu: %s</string>
+    <string name="modification_date_label">Son Değiştirme: %s</string>
+    <string name="edit_history_title">Düzenleme Geçmişi:</string>
+    <string name="edit_history_item">- %s</string>
+    <string name="edit_history_dialog_title">Düzenleme Geçmişi</string>
+    <string name="photo_note_title">Fotoğraf Notu</string>
+    <string name="voice_recording_title">Ses Kaydı</string>
+    <string name="image_preview">Resim Önizleme</string>
+    <string name="audio_file_cannot_be_played">Ses dosyası oynatılamıyor.</string>
+    <string name="share_chooser_title">Notu şununla paylaş:</string>
+    <string name="share_note_chooser_title">Notu Paylaş</string>
+    <string name="share_audio_chooser_title">Sesi Paylaş</string>
+    <string name="share_notes_chooser_title">Notları Paylaş</string>
+    <string name="shared_note_default_title">Paylaşılan Not</string>
+    <string name="note_too_long_for_image_share_toast">Not çok uzun olduğu için metin olarak paylaşılıyor ve panoya kopyalandı.</string>
+    <string name="checklist_render_title">Kontrol Listesi:</string>
+
+    <string name="button_add_checklist_item">+ Kontrol Listesi Öğesi Ekle</string>
+    <string name="hint_checklist_item">Liste öğesi</string>
+    <string name="delete_checklist_item_description">Liste öğesini sil</string>
+    <string name="delete_item_desc">Öğeyi Sil</string>
+    <string name="checklist_summary_preview">[Liste: %1$d/%2$d tamamlandı]</string>
+
+    <string name="tooltip_add_photo">Fotoğraf Ekle</string>
+    <string name="tooltip_record_audio">Ses Kaydet</string>
+    <string name="tooltip_bold">Kalın</string>
+    <string name="tooltip_italic">İtalik</string>
+    <string name="tooltip_strikethrough">Üstü Çizili</string>
+    <string name="tooltip_voice_note">Sesli Not Ekle</string>
+    <string name="tooltip_edit_history">Düzenleme Geçmişini Göster</string>
+
+    <string name="sort_dialog_title">Notları Sırala</string>
+    <string name="sort_by_creation_date_newest">Oluşturma Tarihi (Yeniden Eskiye)</string>
+    <string name="sort_by_creation_date_oldest">Oluşturma Tarihi (Eskiden Yeniye)</string>
+    <string name="sort_by_content_az">İçerik (A-Z)</string>
+
+    <string name="delete_note_confirmation_title">Notu Sil</string>
+    <string name="delete_note_confirmation_message">Bu notu kalıcı olarak silmek istediğinizden emin misiniz?</string>
+    <string name="delete_note_to_trash_confirmation_message">Bu notu çöp kutusuna taşımak istediğinizden emin misiniz?</string>
+    <string name="dialog_move_to_trash">Çöp Kutusuna Taşı</string>
+    <string name="note_moved_to_trash_toast">Not çöp kutusuna taşındı.</string>
+    <string name="trash_title">Çöp Kutusu</string>
+    <string name="trash_bin_title">Çöp Kutusu</string>
+    <string name="empty_trash_message">Çöp kutusu boş.</string>
+    <string name="note_options_title">Not Seçenekleri</string>
+    <string name="restore_note">Notu Geri Yükle</string>
+    <string name="delete_permanently">Kalıcı Olarak Sil</string>
+    <string name="note_restored_toast">Not geri yüklendi.</string>
+    <string name="note_deleted_permanently_toast">Not kalıcı olarak silindi.</string>
+    <string name="dialog_title_delete_permanently">Notu Kalıcı Olarak Sil</string>
+    <string name="dialog_message_delete_permanently">Bu notu kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</string>
+    <string name="dialog_confirm_delete_permanently">Evet, Kalıcı Olarak Sil</string>
+    <string name="move_notes_to_trash_confirmation_message">Seçili notları çöp kutusuna taşımak istediğinizden emin misiniz?</string>
+    <string name="trash_info_message">Çöp kutusundaki notlar 30 gün sonra kalıcı olarak silinir.</string>
+
+    <plurals name="selection_title">
+        <item quantity="one">%d not seçildi</item>
+        <item quantity="other">%d not seçildi</item>
+    </plurals>
+    <plurals name="delete_notes_confirmation_title">
+        <item quantity="one">%d notu sil</item>
+        <item quantity="other">%d notu sil</item>
+    </plurals>
+    <plurals name="notes_deleted_toast">
+        <item quantity="one">%d not silindi.</item>
+        <item quantity="other">%d not silindi.</item>
+    </plurals>
+    <plurals name="delete_notes_confirmation_message">
+        <item quantity="one">Seçili notu kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</item>
+        <item quantity="other">Seçili %d notu kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</item>
+    </plurals>
+    <plurals name="move_notes_to_trash_confirmation_title">
+        <item quantity="one">%d notu çöp kutusuna taşı</item>
+        <item quantity="other">%d notu çöp kutusuna taşı</item>
+    </plurals>
+
+    <string name="speech_listening">Dinleniyor...</string>
+    <string name="speech_error_generic">Bir hata oluştu, lütfen tekrar deneyin.</string>
+    <string name="critical_error_recording_stopped">Kritik bir hata nedeniyle kayıt durduruldu.</string>
+    <string name="audio_recording_service_channel_name">Ses Kayıt Servisi</string>
+    <string name="start_voice_recording_desc">Ses Kaydını Başlat</string>
+    <string name="tap_to_record">Kaydetmek için dokunun</string>
+    <string name="tap_to_stop">Durdurmak için dokunun</string>
+    <string name="recording_in_progress">Kayıt devam ediyor...</string>
+
+    <string name="camera_permission_denied">Bu özelliği kullanmak için kamera izni gereklidir.</string>
+    <string name="microphone_permission_needed">Mikrofon izni gereklidir.</string>
+    <string name="mic_permission_granted_widget_available">Mikrofon izni verildi. Sesli not widget\'ı artık kullanılabilir.</string>
+    <string name="mic_permission_denied_widget_unavailable">Mikrofon izni reddedildi. Sesli not widget\'ı çalışmayacak.</string>
+
+    <string name="widget_empty_view_text">Henüz görüntülenecek not yok.\nUygulamadan yeni bir not ekleyebilirsiniz.</string>
+    <string name="widget_new_note_button">Yeni Not Ekle</string>
+    <string name="pin_to_widget">Widget\'a Sabitle</string>
+    <string name="unpin_from_widget">Widget\'tan Kaldır</string>
+    <string name="unpinned_from_widget_toast">Notlar widget\'tan kaldırıldı.</string>
+    <string name="notes_pinned_to_widget_toast">Seçili notlar widget\'a sabitlendi.</string>
+    <string name="camera_widget_title">Kamera Notu</string>
+    <string name="camera_widget_description">Bir fotoğraf çekin ve not olarak kaydedin.</string>
+    <string name="take_photo">Fotoğraf Çek</string>
+    <string name="note_title_placeholder">Not Başlığı</string>
+    <string name="note_content_placeholder">Not içeriği burada görünecek</string>
+    <string name="widget_bg_papyrys">Papirüs Kağıdı</string>
+    <string name="widget_bg_harmony_of_colors">Renklerin Uyumu</string>
+    <string name="widget_bg_raven_black">Kuzgun Siyahı</string>
+    <string name="widget_bg_beach_blue">Sahil Mavisi</string>
+    <string name="widget_bg_lavender_dream">Lavanta Rüyası</string>
+    <string name="widget_bg_rose_dust">Gül Tozu</string>
+    <string name="widget_bg_cloud_gray">Bulut Grisi</string>
+    <string name="widget_bg_mint_freshness">Nane Ferahlığı</string>
+    <string name="widget_bg_coral_breeze">Mercan Esintisi</string>
+    <string name="widget_bg_crystal_clarity">Kristal Berraklığı</string>
+    <string name="widget_bg_sapphire_blue">Safir Mavisi</string>
+
+    <string name="onboarding_subtitle">Hayatın hızına yetişen, fikirlerinizi anında yakalayan not defteriniz.</string>
+    <string name="onboarding_feature1_title">Anı Yakala</string>
+    <string name="onboarding_feature1_desc">Widget\'lar sayesinde tek dokunuşla fotoğraf ve sesli notlar oluşturun, hiçbir detayı kaçırmayın.</string>
+    <string name="onboarding_feature2_title">Sınırları Kaldır</string>
+    <string name="onboarding_feature2_desc">Metin, resim, ses ve kontrol listeleri... Notlarınızı dilediğiniz gibi zenginleştirin.</string>
+    <string name="onboarding_feature3_title">Verilerin Güvende</string>
+    <string name="onboarding_feature3_desc">Uygulamayı parola ile kilitleyin, notlarınız sadece size özel kalsın.</string>
+    <string name="onboarding_feature4_title">Her An Yanında</string>
+    <string name="onboarding_feature4_desc">Notlarınızı Google Drive\'a güvenle yedekleyin, istediğiniz cihazdan erişin.</string>
+    <string name="onboarding_start_button">Maceraya Başla!</string>
+
+    <string name="settings">Ayarlar</string>
+    <string name="settings_title">Ayarlar</string>
+    <string name="appearance_category_title">Görünüm</string>
+    <string name="theme_title">Tema</string>
+    <string name="theme_dialog_title">Tema Seç</string>
+    <string name="theme_light">Açık Tema</string>
+    <string name="theme_dark">Koyu Tema</string>
+    <string name="theme_system_default">Sistem Varsayılanı</string>
+    <string name="app_color_title">Uygulama Rengi</string>
+    <string name="widget_background_title">Widget Arka Planı</string>
+    <string name="add_widget_title">Widget Ekle</string>
+    <string name="add_widget_summary">Ana ekrana not, kamera veya sesli not widget\'ı ekleyin.</string>
+    <string name="data_management_title">Veri Yönetimi</string>
+    <string name="backup_to_drive_title">Drive\'a Yedekle</string>
+    <string name="backup_to_drive_summary">Tüm notlarınızı Google Drive\'a kaydeder.</string>
+    <string name="restore_from_drive_title">Drive\'dan Geri Yükle</string>
+    <string name="restore_from_drive_summary">Daha önce yedeklediğiniz notları geri yükler.</string>
+    <string name="delete_account_title">Hesabı Sil</string>
+    <string name="delete_account_summary">Hesabınızı ve tüm verilerinizi kalıcı olarak silin.</string>
+    <string name="delete_account_confirmation_message">Hesabınızı kalıcı olarak silmek istediğinizden emin misiniz? Notlar ve ayarlar dahil tüm verileriniz silinecektir. Bu işlem geri alınamaz.</string>
+    <string name="other_settings_category_title">Diğer Ayarlar</string>
+    <string name="trash_bin_summary">Silinen notları görüntüleyin ve yönetin</string>
+    <string name="privacy_policy_title">Gizlilik Politikası</string>
+    <string name="privacy_policy_summary">Uygulamanın gizlilik politikasını okuyun.</string>
+    <string name="contact_us_title">Bize Ulaşın</string>
+    <string name="contact_us_summary">Geri bildirim veya destek için bize e-posta gönderin.</string>
+    <string name="contact_us_email_subject">Acil Not Uygulaması Geri Bildirimi</string>
+    <string name="toast_no_browser_found">Web tarayıcısı bulunamadı.</string>
+    <string name="toast_no_email_app_found">E-posta uygulaması bulunamadı.</string>
+
+    <string name="application_encryption_category_title">Uygulama Şifrelemesi</string>
+    <string name="password_settings_title">Şifre Ayarları</string>
+    <string name="password_settings_summary">Uygulamayı bir şifre ile kilitleyin</string>
+    <string name="set_password_title">Şifre Belirle</string>
+    <string name="enter_new_password_hint">Yeni şifreyi girin</string>
+    <string name="confirm_new_password_hint">Yeni şifreyi onaylayın</string>
+    <string name="save_password_button">Şifreyi Kaydet</string>
+    <string name="disable_password_button">Şifreyi Devre Dışı Bırak</string>
+    <string name="password_mismatch_error">Şifreler eşleşmiyor.</string>
+    <string name="password_too_short_error">Şifre en az 4 karakter olmalıdır.</string>
+    <string name="password_set_success">Şifre başarıyla ayarlandı.</string>
+    <string name="password_disabled_success">Şifre devre dışı bırakıldı.</string>
+    <string name="password_disable_confirmation_title">Şifreyi Devre Dışı Bırak</string>
+    <string name="password_disable_confirmation_message">Uygulama şifresini devre dışı bırakmak istediğinizden emin misiniz?</string>
+    <string name="enter_current_password_hint">Şifrenizi girin</string>
+    <string name="current_password_incorrect_error">Mevcut şifre yanlış.</string>
+    <string name="password_security_explanation">Güvenliğiniz bizim için önemli. Şifreniz asla doğrudan telefonunuzda saklanmaz. Bunun yerine, geri döndürülemez bir şifreleme olan SHA-256 Hash ve her şifreye eklenen rastgele bir "Tuz" ile korunur. Bu sayede, biz dahil hiç kimse orijinal şifrenize erişemez.</string>
+    <string name="toast_enter_current_password_to_disable">Devre dışı bırakmak için lütfen mevcut şifrenizi girin.</string>
+    <string name="toast_password_fields_cannot_be_empty">Şifre alanları boş bırakılamaz.</string>
+    <string name="unlock_app_title">Uygulamanın Kilidini Aç</string>
+    <string name="enter_password_to_unlock">Uygulamanın kilidini açmak için şifrenizi girin.</string>
+    <string name="unlock_button">Kilidi Aç</string>
+    <string name="incorrect_password_error">Yanlış şifre.</string>
+    <string name="security_info_button_description">Güvenlik Bilgisi</string>
+    <string name="security_info">Güvenlik Bilgisi</string>
+    <string name="security_info_title">Güvenlik Bilgisi</string>
+    <string name="password_set_backup_starting">Şifre ayarlandı. Otomatik yedekleme başlatılıyor...</string>
+    <string name="password_removed_backup_starting">Şifre kaldırıldı. Otomatik yedekleme başlatılıyor...</string>
+    <string name="password_change_backup_success">Parola değişikliği Google Drive yedeğine başarıyla yansıtıldı.</string>
+    <string name="password_change_backup_fail">Parola değiştirildi ancak Drive yedeği güncellenemedi.</string>
+
+    <string name="google_sign_in_cancelled">Google ile oturum açma iptal edildi.</string>
+    <string name="sign_in_error_try_again">Oturum açma hatası: Lütfen tekrar deneyin.</string>
+    <string name="backup_in_progress">Yedekleme Sürüyor…</string>
+    <string name="restore_in_progress">Geri Yükleme Sürüyor…</string>
+    <string name="backup_update_in_progress">Yedek Güncelleniyor…</string>
+    <string name="backup_successful">Notlar ve ayarlar başarıyla yedeklendi!</string>
+    <string name="error_occurred_during_backup">Yedekleme sırasında bir hata oluştu: %s</string>
+    <string name="backup_failed">Yedekleme başarısız oldu: %s</string>
+    <string name="restore_failed">Notlar geri yüklenemedi.</string>
+    <string name="restore_failed_with_error">Geri yükleme işlemi başarısız: %s</string>
+    <string name="backup_not_found">Google Drive\'da yedekleme dosyası bulunamadı.</string>
+    <string name="restore_dialog_title">Notları Geri Yükle</string>
+    <string name="restore_dialog_message">Notları Google Drive\'dan geri yüklemek istediğinizden emin misiniz? Bu, mevcut tüm notlarınızın üzerine yazacak ve geri alınamaz.</string>
+    <string name="restore_confirm">Evet, Geri Yükle</string>
+    <string name="restore_success">Notlar başarıyla geri yüklendi!</string>
+    <string name="existing_backup_found_title">Mevcut Yedek Bulundu</string>
+    <string name="existing_backup_found_message">Google Drive\'da zaten bir yedeğiniz var. Üzerine yazmak istediğinizden emin misiniz? Bu işlem geri alınamaz.</string>
+    <string name="overwrite_button">Evet, Üzerine Yaz</string>
+    <string name="searching_for_backups">Yedekler aranıyor...</string>
+    <string name="backup_file_empty_or_corrupt">Yedek dosyası boş veya bozuk.</string>
+    <string name="password_required_title">Şifre Gerekli</string>
+    <string name="backup_password_protected_message">Bu yedekleme şifre korumalıdır. Devam etmek için lütfen şifrenizi girin.</string>
+    <string name="incorrect_password">Yanlış şifre!</string>
+    <string name="dialog_ok">Tamam</string>
+
+    <string name="add_widget_dialog_title">Widget Ekle</string>
+    <string name="widget_option_note_list">Not Listesi Widget\'ı</string>
+    <string name="widget_option_camera_note">Fotoğraf Notu Widget\'ı</string>
+    <string name="widget_option_voice_note">Sesli Not Widget\'ı</string>
+
+    <string name="action_select_all">Tümünü Seç</string>
+
+    <string name="delete_in_progress">Hesap Siliniyor…</string>
+    <string name="account_deleted_successfully">Hesabınız ve tüm verileriniz başarıyla silindi.</string>
+    <string name="account_deletion_failed">Hesap silinemedi. Lütfen tekrar deneyin</string>
+    <string name="account_deletion_failed_with_error">Hesap silinemedi: %1$s</string>
+
+    <string name="final_delete_confirmation_title">Emin misiniz?</string>
+    <string name="final_delete_confirmation_message">Bu son uyarıdır. Hesabınızı silmek tüm verilerinizi kalıcı olarak silecek ve bu işlem geri alınamaz. Yine de devam etmek istiyor musunuz?</string>
+    <string name="final_delete_confirm_button">Evet, Her Şeyi Sil</string>
+    <string name="launcher_does_not_support_feature">Başlatıcınız (ana ekran uygulaması) bu özelliği desteklemiyor.</string>
+    <string name="feature_requires_android_oreo">Bu özellik Android 8.0 (Oreo) ve üzeri sürümlerde mevcuttur.</string>
+    <string name="an_error_occurred_during_backup_simple">Yedekleme sırasında bir hata oluştu.</string>
+    <string name="progress_percentage_format" translatable="false">%d%%</string>
+    <string name="no_notes_to_backup">Yedeklenecek not bulunmuyor.</string>
+</resources>

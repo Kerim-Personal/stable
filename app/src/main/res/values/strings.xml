@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">SnapNote</string>
+    <string name="ok">OK</string>
+    <string name="dialog_cancel">Cancel</string>
+    <string name="dialog_yes">Yes</string>
+    <string name="dialog_no">No</string>
+    <string name="confirm_button">Confirm</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="stop">Stop</string>
+    <string name="saved">Saved</string>
+    <string name="error_dialog_title">Application Not Found</string>
+
+
+    <string name="onboarding_subtitle">Your notebook that keeps up with the speed of life, capturing your ideas instantly.</string>
+    <string name="onboarding_feature1_title">Capture the Moment</string>
+    <string name="onboarding_feature1_desc">Create photo and voice notes with a single tap using widgets, never miss a detail.</string>
+    <string name="onboarding_feature2_title">Break the Limits</string>
+    <string name="onboarding_feature2_desc">Text, images, audio, and checklists... Enrich your notes however you want.</string>
+    <string name="onboarding_feature3_title">Your Data is Secure</string>
+    <string name="onboarding_feature3_desc">Lock the app with a password, keeping your notes private to you.</string>
+    <string name="onboarding_feature4_title">With You, Always</string>
+    <string name="onboarding_feature4_desc">Securely back up your notes to Google Drive and access them from any device.</string>
+    <string name="onboarding_start_button">Start the Adventure!</string>
+
+
+    <string name="search_title">Search</string>
+    <string name="sort_title">Sort</string>
+    <string name="action_share">Share</string>
+    <string name="action_delete">Delete</string>
+    <string name="add_note_fab_description">Add New Note</string>
+    <string name="empty_notes_message">You have no notes yet.</string>
+    <string name="share_notes_chooser_title">Share Notes</string>
+    <string name="sort_dialog_title">Sort Notes</string>
+    <string name="sort_by_creation_date_newest">Creation Date (Newest to Oldest)</string>
+    <string name="sort_by_creation_date_oldest">Creation Date (Oldest to Newest)</string>
+    <string name="sort_by_content_az">Content (A-Z)</string>
+
+
+    <string name="title_activity_new_note">Add New Note</string>
+    <string name="title_activity_edit_note">Edit Note</string>
+    <string name="button_save">Save</string>
+    <string name="hint_note_title">Title</string>
+    <string name="hint_note_content">Write your note here…</string>
+    <string name="toast_empty_note">Note content cannot be empty!</string>
+    <string name="creation_date_label">Created: %s</string>
+    <string name="modification_date_label">Last Modified: %s</string>
+    <string name="edit_history_title">Edit History:</string>
+    <string name="edit_history_item">- %s</string>
+    <string name="edit_history_dialog_title">Edit History</string>
+    <string name="photo_note_title">Photo Note</string>
+    <string name="image_preview">Image Preview</string>
+    <string name="voice_recording_title">Voice Recording</string>
+    <string name="audio_file_cannot_be_played">Cannot play audio file.</string>
+    <string name="share_chooser_title">Share note with:</string>
+    <string name="share_note_chooser_title">Share Note</string>
+    <string name="share_audio_chooser_title">Share Audio</string>
+    <string name="shared_note_default_title">Shared Note</string>
+    <string name="note_too_long_for_image_share_toast">The note is too long, so it is being shared as text and has been copied to the clipboard.</string>
+    <string name="checklist_render_title">Checklist:</string>
+    <string name="button_add_checklist_item">+ Add Checklist Item</string>
+    <string name="hint_checklist_item">List item</string>
+    <string name="delete_checklist_item_description">Delete list item</string>
+    <string name="delete_item_desc">Delete Item</string>
+    <string name="checklist_summary_preview">[List: %1$d/%2$d completed]</string>
+    <string name="tooltip_add_photo">Add Photo</string>
+    <string name="tooltip_record_audio">Record Audio</string>
+    <string name="tooltip_bold">Bold</string>
+    <string name="tooltip_italic">Italic</string>
+    <string name="tooltip_strikethrough">Strikethrough</string>
+    <string name="tooltip_voice_note">Add Voice Note</string>
+    <string name="tooltip_edit_history">Show Edit History</string>
+
+
+    <string name="delete_note_confirmation_title">Delete Note</string>
+    <string name="delete_note_confirmation_message">Are you sure you want to permanently delete this note?</string>
+    <string name="delete_note_to_trash_confirmation_message">Are you sure you want to move this note to the trash?</string>
+    <string name="dialog_move_to_trash">Move to Trash</string>
+    <string name="note_moved_to_trash_toast">Note moved to trash.</string>
+    <string name="trash_title">Trash</string>
+    <string name="trash_bin_title">Trash</string>
+    <string name="empty_trash_message">Trash is empty.</string>
+    <string name="note_options_title">Note Options</string>
+    <string name="restore_note">Restore Note</string>
+    <string name="delete_permanently">Delete Permanently</string>
+    <string name="note_restored_toast">Note restored.</string>
+    <string name="note_deleted_permanently_toast">Note permanently deleted.</string>
+    <string name="dialog_title_delete_permanently">Delete Note Permanently</string>
+    <string name="dialog_message_delete_permanently">Are you sure you want to permanently delete this note? This action cannot be undone.</string>
+    <string name="dialog_confirm_delete_permanently">Yes, Delete Permanently</string>
+    <string name="move_notes_to_trash_confirmation_message">Are you sure you want to move the selected notes to the trash?</string>
+    <string name="trash_info_message">Notes in the trash are permanently deleted after 30 days.</string>
+    <plurals name="selection_title">
+        <item quantity="one">%d note selected</item>
+        <item quantity="other">%d notes selected</item>
+    </plurals>
+    <plurals name="delete_notes_confirmation_title">
+        <item quantity="one">Delete %d note</item>
+        <item quantity="other">Delete %d notes</item>
+    </plurals>
+    <plurals name="notes_deleted_toast">
+        <item quantity="one">%d note deleted.</item>
+        <item quantity="other">%d notes deleted.</item>
+    </plurals>
+    <plurals name="delete_notes_confirmation_message">
+        <item quantity="one">Are you sure you want to permanently delete the selected note? This action cannot be undone.</item>
+        <item quantity="other">Are you sure you want to permanently delete the %d selected notes? This action cannot be undone.</item>
+    </plurals>
+    <plurals name="move_notes_to_trash_confirmation_title">
+        <item quantity="one">Move %d note to trash</item>
+        <item quantity="other">Move %d notes to trash</item>
+    </plurals>
+
+
+    <string name="speech_listening">Listening...</string>
+    <string name="speech_error_generic">An error occurred, please try again.</string>
+    <string name="critical_error_recording_stopped">Recording stopped due to a critical error.</string>
+    <string name="audio_recording_service_channel_name">Audio Recording Service</string>
+    <string name="start_voice_recording_desc">Start Voice Recording</string>
+    <string name="tap_to_record">Tap to record</string>
+    <string name="tap_to_stop">Tap to stop</string>
+    <string name="recording_in_progress">Recording in progress...</string>
+
+
+    <string name="camera_permission_denied">Camera permission is required to use this feature.</string>
+    <string name="microphone_permission_needed">Microphone permission is required.</string>
+    <string name="mic_permission_granted_widget_available">Microphone permission granted. The voice note widget is now available.</string>
+    <string name="mic_permission_denied_widget_unavailable">Microphone permission denied. The voice note widget will not work.</string>
+    <string name="toast_no_browser_found">Web browser not found.</string>
+    <string name="toast_no_email_app_found">Email application not found.</string>
+
+
+    <string name="widget_empty_view_text">No notes to display yet.\nYou can add a new note from the app.</string>
+    <string name="widget_new_note_button">Add New Note</string>
+    <string name="pin_to_widget">Pin to Widget</string>
+    <string name="unpin_from_widget">Unpin from Widget</string>
+    <string name="unpinned_from_widget_toast">Notes have been unpinned from the widget.</string>
+    <string name="notes_pinned_to_widget_toast">Selected notes have been pinned to the widget.</string>
+    <string name="camera_widget_title">Camera Note</string>
+    <string name="camera_widget_description">Take a photo and save it as a note.</string>
+    <string name="take_photo">Take Photo</string>
+    <string name="note_title_placeholder">Note Title</string>
+    <string name="note_content_placeholder">Note content will appear here</string>
+    <string name="widget_bg_papyrys">Papyrus Paper</string>
+    <string name="widget_bg_harmony_of_colors">Harmony of Colors</string>
+    <string name="widget_bg_raven_black">Raven Black</string>
+    <string name="widget_bg_beach_blue">Beach Blue</string>
+    <string name="widget_bg_lavender_dream">Lavender Dream</string>
+    <string name="widget_bg_rose_dust">Rose Dust</string>
+    <string name="widget_bg_cloud_gray">Cloud Gray</string>
+    <string name="widget_bg_mint_freshness">Mint Freshness</string>
+    <string name="widget_bg_coral_breeze">Coral Breeze</string>
+    <string name="widget_bg_crystal_clarity">Crystal Clarity</string>
+    <string name="widget_bg_sapphire_blue">Sapphire Blue</string>
+
+
+    <string name="settings">Settings</string>
+    <string name="settings_title">Settings</string>
+    <string name="appearance_category_title">Appearance</string>
+    <string name="theme_title">Theme</string>
+    <string name="theme_dialog_title">Select Theme</string>
+    <string name="theme_light">Light Theme</string>
+    <string name="theme_dark">Dark Theme</string>
+    <string name="theme_system_default">System Default</string>
+    <string name="app_color_title">App Color</string>
+    <string name="widget_background_title">Widget Background</string>
+    <string name="add_widget_title">Add Widget</string>
+    <string name="add_widget_summary">Add a note, camera or voice note widget to your home screen.</string>
+    <string name="data_management_title">Data Management</string>
+    <string name="backup_to_drive_title">Back up to Drive</string>
+    <string name="backup_to_drive_summary">Saves all your notes to Google Drive.</string>
+    <string name="restore_from_drive_title">Restore from Drive</string>
+    <string name="restore_from_drive_summary">Restores your previously backed up notes.</string>
+    <string name="delete_account_title">Delete Account</string>
+    <string name="delete_account_summary">Permanently delete your account and all data.</string>
+    <string name="delete_account_confirmation_message">Are you sure you want to permanently delete your account? All your data, including notes and settings, will be erased. This action cannot be undone.</string>
+    <string name="other_settings_category_title">Other Settings</string>
+    <string name="trash_bin_summary">View and manage deleted notes</string>
+    <string name="privacy_policy_title">Privacy Policy</string>
+    <string name="privacy_policy_summary">Read the application\'s privacy policy.</string>
+    <string name="contact_us_title">Contact Us</string>
+    <string name="contact_us_summary">Email us for feedback or support.</string>
+    <string name="contact_us_email_subject">SnapNote App Feedback</string>
+
+
+    <string name="application_encryption_category_title">Application Encryption</string>
+    <string name="password_settings_title">Password Settings</string>
+    <string name="password_settings_summary">Lock the application with a password</string>
+    <string name="set_password_title">Set Password</string>
+    <string name="enter_new_password_hint">Enter new password</string>
+    <string name="confirm_new_password_hint">Confirm new password</string>
+    <string name="save_password_button">Save Password</string>
+    <string name="disable_password_button">Disable Password</string>
+    <string name="password_mismatch_error">Passwords do not match.</string>
+    <string name="password_too_short_error">Password must be at least 4 characters long.</string>
+    <string name="password_set_success">Password successfully set.</string>
+    <string name="password_disabled_success">Password disabled.</string>
+    <string name="password_disable_confirmation_title">Disable Password</string>
+    <string name="password_disable_confirmation_message">Are you sure you want to disable the application password? This will also update your backup on Google Drive.</string>
+    <string name="enter_current_password_hint">Enter your password</string>
+    <string name="current_password_incorrect_error">Incorrect current password.</string>
+    <string name="toast_enter_current_password_to_disable">Please enter your current password to disable it.</string>
+    <string name="toast_password_fields_cannot_be_empty">Password fields cannot be empty.</string>
+    <string name="unlock_app_title">Unlock Application</string>
+    <string name="enter_password_to_unlock">Enter your password to unlock the application.</string>
+    <string name="unlock_button">Unlock</string>
+    <string name="incorrect_password_error">Incorrect password.</string>
+    <string name="security_info_button_description">Security Information</string>
+    <string name="security_info">Security Info</string>
+    <string name="security_info_title">Security Information</string>
+    <string name="password_security_explanation">Your security is important to us. Your password is never stored directly on your phone. Instead, it is protected with SHA-256 Hash, an irreversible encryption, and a random "Salt" added to each password. This way, no one, including us, can access your original password.</string>
+    <string name="password_set_backup_starting">Password set. Automatic backup initiated...</string>
+    <string name="password_removed_backup_starting">Password removed. Automatic backup initiated...</string>
+    <string name="password_change_backup_success">Password change was successfully reflected in the Drive backup.</string>
+    <string name="password_change_backup_fail">Password changed, but the Drive backup could not be updated.</string>
+
+    <string name="google_sign_in_cancelled">Google sign-in was cancelled.</string>
+    <string name="sign_in_error_try_again">Sign-in error: Please try again.</string>
+    <string name="backup_in_progress">Backup in Progress…</string>
+    <string name="restore_in_progress">Restore in Progress…</string>
+    <string name="backup_update_in_progress">Updating backup…</string>
+    <string name="backup_not_found">No backup file found on Google Drive.</string>
+    <string name="restore_dialog_title">Restore Notes</string>
+    <string name="restore_dialog_message">Are you sure you want to restore notes from Google Drive? This will overwrite all your current notes and cannot be undone.</string>
+    <string name="restore_confirm">Yes, Restore</string>
+    <string name="existing_backup_found_title">Existing Backup Found</string>
+    <string name="existing_backup_found_message">You already have a backup on Google Drive. Are you sure you want to overwrite it? This action cannot be undone.</string>
+    <string name="overwrite_button">Yes, Overwrite</string>
+    <string name="searching_for_backups">Searching for backups...</string>
+    <string name="backup_file_empty_or_corrupt">Backup file is empty or corrupt.</string>
+    <string name="password_required_title">Password Required</string>
+    <string name="backup_password_protected_message">This backup is password protected. Please enter your password to continue.</string>
+    <string name="dialog_ok">OK</string>
+    <string name="backup_successful">Notes and settings backed up successfully!</string>
+    <string name="restore_success">Notes restored successfully!</string>
+    <string name="incorrect_password">Incorrect password!</string>
+
+    <string name="error_occurred_during_backup">An error occurred during backup: %s</string>
+    <string name="backup_failed">Backup failed: %s</string>
+    <string name="restore_failed_with_error">Restore operation failed: %s</string>
+
+    <string name="restore_failed">Failed to restore notes.</string>
+
+    <string name="add_widget_dialog_title">Add Widget</string>
+    <string name="widget_option_note_list">Note List Widget</string>
+    <string name="widget_option_camera_note">Picture Note Widget</string>
+    <string name="widget_option_voice_note">Voice Note Widget</string>
+
+    <string name="action_select_all">Select All</string>
+
+    <string name="delete_in_progress">Deleting Account…</string>
+    <string name="account_deleted_successfully">Your account and all data have been successfully deleted.</string>
+    <string name="account_deletion_failed">Failed to delete account. Please try again</string>
+    <string name="account_deletion_failed_with_error">Failed to delete account: %1$s</string>
+
+    <string name="final_delete_confirmation_title">Are you absolutely sure?</string>
+    <string name="final_delete_confirmation_message">This is your final warning. Deleting your account will permanently erase all data, and this action cannot be undone. Do you still wish to proceed?</string>
+    <string name="final_delete_confirm_button">Yes, Delete Everything</string>
+    <string name="launcher_does_not_support_feature">Your launcher (home screen app) does not support this feature.</string>
+    <string name="feature_requires_android_oreo">This feature is available on Android 8.0 (Oreo) and above.</string>
+    <string name="an_error_occurred_during_backup_simple">An error occurred during backup.</string>
+    <string name="progress_percentage_format" translatable="false">%d%%</string>
+    <string name="no_notes_to_backup">There are no notes to back up.</string>
+
+</resources>

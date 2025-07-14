@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="theme_entries">
+        <item>@string/theme_light</item>
+        <item>@string/theme_dark</item>
+        <item>@string/theme_system_default</item>
+    </string-array>
+
+    <string-array name="theme_values" translatable="false">
+        <item>light</item>
+        <item>dark</item>
+        <item>system_default</item>
+    </string-array>
+
+    <string-array name="widget_background_entries">
+        <item>@string/widget_bg_papyrys</item>
+        <item>@string/widget_bg_harmony_of_colors</item>
+        <item>@string/widget_bg_raven_black</item>
+        <item>@string/widget_bg_beach_blue</item>
+        <item>@string/widget_bg_lavender_dream</item>
+        <item>@string/widget_bg_rose_dust</item>
+        <item>@string/widget_bg_cloud_gray</item>
+        <item>@string/widget_bg_mint_freshness</item>
+        <item>@string/widget_bg_coral_breeze</item>
+        <item>@string/widget_bg_crystal_clarity</item>
+        <item>@string/widget_bg_sapphire_blue</item>
+    </string-array>
+
+    <string-array name="widget_background_values" translatable="false">
+        <item>widget_background</item>
+        <item>bg1</item>
+        <item>bg2</item>
+        <item>bg3</item>
+        <item>bg4</item>
+        <item>bg5</item>
+        <item>bg6</item>
+        <item>bg7</item>
+        <item>bg8</item>
+        <item>bg9</item>
+        <item>bg10</item>
+    </string-array>
+
+    <string-array name="color_theme_entries">
+        <item>Maroon</item>
+        <item>Ocean Blue</item>
+        <item>Forest Green</item>
+        <item>Rose</item>
+        <item>Teal</item>
+        <item>Indigo</item>
+        <item>Orange</item>
+        <item>Brown</item>
+        <item>Grey</item>
+        <item>Cyan</item>
+        <item>Lime</item>
+    </string-array>
+
+    <string-array name="color_theme_values" translatable="false">
+        <item>bordo</item>
+        <item>blue</item>
+        <item>green</item>
+        <item>rose</item>
+        <item>teal</item>
+        <item>indigo</item>
+        <item>orange</item>
+        <item>brown</item>
+        <item>grey</item>
+        <item>cyan</item>
+        <item>lime</item>
+    </string-array>
+
+</resources>

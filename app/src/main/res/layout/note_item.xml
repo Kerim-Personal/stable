@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/note_card_container"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="8dp"
+    android:layout_marginTop="4dp"
+    android:layout_marginBottom="4dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp"
+    app:cardUseCompatPadding="false">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <ImageView
+            android:id="@+id/iv_note_item_image"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:contentDescription="@string/image_preview"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:src="@tools:sample/backgrounds/scenic"
+            tools:visibility="visible" />
+
+        <ImageView
+            android:id="@+id/iv_pinned_icon"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:contentDescription="@string/pin_to_widget"
+            android:src="@drawable/ic_push_pin"
+            android:visibility="gone"
+            app:layout_constraintEnd_toStartOf="@id/iv_note_item_image"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/black"
+            tools:visibility="visible" />
+
+        <TextView
+            android:id="@+id/tv_note_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="@color/black"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toStartOf="@id/iv_pinned_icon"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="Not Başlığı Her Zaman Siyah" />
+
+        <TextView
+            android:id="@+id/tv_note_content"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginEnd="8dp"
+            android:alpha="0.75"
+            android:ellipsize="end"
+            android:maxLines="4"
+            android:textColor="@color/black"
+            app:layout_constraintEnd_toStartOf="@id/iv_note_item_image"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tv_note_title"
+            tools:text="Bu not içeriği de karanlık modda bile siyah görünecek. Okunabilirlik için alpha değeri ile biraz soluklaştırıldı." />
+
+        <LinearLayout
+            android:id="@+id/ll_audio_player_preview"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/scrollview_border"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/iv_note_item_image"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tv_note_content"
+            tools:visibility="visible">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:contentDescription="@null"
+                android:src="@android:drawable/ic_media_play"
+                app:tint="@color/black" />
+
+            <TextView
+                android:id="@+id/tv_audio_title_preview"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:alpha="0.7"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@string/voice_recording_title"
+                android:textColor="@color/black" />
+        </LinearLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView>

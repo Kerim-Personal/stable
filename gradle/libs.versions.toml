@@ -1,0 +1,69 @@
+[versions]
+agp = "8.11.1"
+kotlin = "2.0.0"
+coreKtx = "1.16.0"
+junit = "4.13.2"
+junitVersion = "1.2.1"
+espressoCore = "3.6.1"
+appcompat = "1.7.1"
+material = "1.12.0"
+activity = "1.10.1"
+constraintlayout = "2.2.1"
+ksp = "2.0.0-1.0.22"
+lifecycle = "2.9.1"
+room = "2.7.2"
+gson = "2.13.1"
+preferenceKtx = "1.2.1"
+kotlinxCoroutines = "1.10.2"
+securityCrypto = "1.1.0-beta01"
+work = "2.10.2"
+camerax = "1.4.2"
+coil = "2.7.0"
+photoview = "2.3.0"
+# --- GÜNCELLEME: Google Drive için en stabil sürümler ve ek bağımlılıklar ---
+googlePlayServicesAuth = "21.2.0"
+googleApiClient = "2.4.0" # google-api-client
+googleOauthClient = "1.36.0" # google-oauth-client
+googleApiClientAndroid = "2.4.0" # google-api-client-android
+googleHttpAndroid = "1.44.2" # google-http-client-android
+# Hatalı versiyonu güncel ve stabil bir versiyonla değiştiriyoruz.
+googleApiServicesDrive = "v3-rev20220815-2.0.0"
+
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
+androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
+androidx-preference-ktx = { group = "androidx.preference", name = "preference-ktx", version.ref = "preferenceKtx" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
+androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
+androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "camerax" }
+androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
+androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
+coil = { group = "io.coil-kt", name = "coil", version.ref = "coil" }
+photoview = { group = "com.github.chrisbanes", name = "PhotoView", version.ref = "photoview" }
+# --- GÜNCELLEME: Google Drive için kütüphane takma adları ---
+google-play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "googlePlayServicesAuth" }
+google-api-client = { group = "com.google.api-client", name = "google-api-client", version.ref = "googleApiClient" }
+google-oauth-client = { group = "com.google.oauth-client", name = "google-oauth-client", version.ref = "googleOauthClient" }
+google-api-client-android = { group = "com.google.api-client", name = "google-api-client-android", version.ref = "googleApiClientAndroid" }
+google-http-client-android = { group = "com.google.http-client", name = "google-http-client-android", version.ref = "googleHttpAndroid" }
+google-api-services-drive = { group = "com.google.apis", name = "google-api-services-drive", version.ref = "googleApiServicesDrive" }
+
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+google-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

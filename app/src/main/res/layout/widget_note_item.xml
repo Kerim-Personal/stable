@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_item_container"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="12dp"
+    android:layout_marginVertical="4dp"
+    android:layout_marginHorizontal="8dp"
+    android:background="@drawable/widget_background">
+
+    <TextView
+        android:id="@+id/tv_widget_item_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Not Başlığı"
+        android:textColor="@android:color/black"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        android:layout_marginBottom="4dp"/>
+
+    <TextView
+        android:id="@+id/tv_widget_item_content"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Not içeriği burada görünecek"
+        android:textColor="@android:color/black"
+        android:textSize="14sp" />
+
+</LinearLayout>

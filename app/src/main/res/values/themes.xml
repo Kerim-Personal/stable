@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <style name="Base.Theme.AcilNotUygulamasi" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay</item>
+
+        <item name="colorPrimary">@color/md_theme_primary</item>
+        <item name="colorOnPrimary">@color/md_theme_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/md_theme_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/md_theme_onPrimaryContainer</item>
+        <item name="colorSecondary">@color/md_theme_secondary</item>
+        <item name="colorOnSecondary">@color/md_theme_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/md_theme_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/md_theme_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/md_theme_tertiary</item>
+        <item name="colorOnTertiary">@color/md_theme_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/md_theme_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/md_theme_onTertiaryContainer</item>
+        <item name="colorError">@color/md_theme_error</item>
+        <item name="colorOnError">@color/md_theme_onError</item>
+        <item name="colorErrorContainer">@color/md_theme_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/md_theme_onErrorContainer</item>
+        <item name="android:colorBackground">@color/md_theme_background</item>
+        <item name="colorOnBackground">@color/md_theme_onBackground</item>
+        <item name="colorSurface">@color/md_theme_surface</item>
+        <item name="colorOnSurface">@color/md_theme_onSurface</item>
+        <item name="colorSurfaceVariant">@color/md_theme_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/md_theme_onSurfaceVariant</item>
+        <item name="colorOutline">@color/md_theme_outline</item>
+        <item name="colorSurfaceInverse">@color/md_theme_inverseSurface</item>
+        <item name="colorOnSurfaceInverse">@color/md_theme_inverseOnSurface</item>
+        <item name="colorPrimaryInverse">@color/md_theme_inversePrimary</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="destructiveButtonColor">@color/md_theme_error</item>
+        <item name="noteInfoButtonTint">@color/md_theme_onSurfaceVariant</item>
+    </style>
+
+    <style name="Theme.AcilNotUygulamasi" parent="Base.Theme.AcilNotUygulamasi" />
+    <style name="Theme_AcilNotUygulamasi_Bordo" parent="Base.Theme.AcilNotUygulamasi" />
+    <style name="Theme.AcilNotUygulamasi.Blue" parent="Base.Theme.AcilNotUygulamasi">
+        <item name="colorPrimary">@color/blue_primary</item>
+        <item name="colorOnPrimary">@color/blue_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/blue_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/blue_onPrimaryContainer</item>
+    </style>
+    <style name="Theme.AcilNotUygulamasi.Green" parent="Base.Theme.AcilNotUygulamasi">
+        <item name="colorPrimary">@color/green_primary</item>
+        <item name="colorOnPrimary">@color/green_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/green_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/green_onPrimaryContainer</item>
+    </style>
+    <style name="Theme.AcilNotUygulamasi.Rose" parent="Base.Theme.AcilNotUygulamasi">
+        <item name="colorPrimary">@color/rose_primary</item>
+        <item name="colorOnPrimary">@color/rose_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/rose_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/rose_onPrimaryContainer</item>
+    </style>
+    <style name="Theme.AcilNotUygulamasi.Teal" parent="Base.Theme.AcilNotUygulamasi">
+        <item name="colorPrimary">@color/teal_primary</item>
+        <item name="colorOnPrimary">@color/teal_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/teal_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/teal_onPrimaryContainer</item>
+    </style>
+    <style name="Theme.AcilNotUygulamasi.Indigo" parent="Base.Theme.AcilNotUygulamasi">
+        <item name="colorPrimary">@color/indigo_primary</item>
+        <item name="colorOnPrimary">@color/indigo_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/indigo_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/indigo_onPrimaryContainer</item>
+    </style>
+    <style name="Theme.AcilNotUygulamasi.Orange" parent="Base.Theme.AcilNotUygulamasi">
+        <item name="colorPrimary">@color/orange_primary</item>
+        <item name="colorOnPrimary">@color/orange_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/orange_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/orange_onPrimaryContainer</item>
+    </style>
+    <style name="Theme.AcilNotUygulamasi.Brown" parent="Base.Theme.AcilNotUygulamasi">
+        <item name="colorPrimary">@color/brown_primary</item>
+        <item name="colorOnPrimary">@color/brown_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/brown_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/brown_onPrimaryContainer</item>
+    </style>
+    <style name="Theme.AcilNotUygulamasi.Grey" parent="Base.Theme.AcilNotUygulamasi">
+        <item name="colorPrimary">@color/grey_primary</item>
+        <item name="colorOnPrimary">@color/grey_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/grey_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/grey_onPrimaryContainer</item>
+    </style>
+    <style name="Theme.AcilNotUygulamasi.Cyan" parent="Base.Theme.AcilNotUygulamasi">
+        <item name="colorPrimary">@color/cyan_primary</item>
+        <item name="colorOnPrimary">@color/cyan_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/cyan_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/cyan_onPrimaryContainer</item>
+    </style>
+    <style name="Theme.AcilNotUygulamasi.Lime" parent="Base.Theme.AcilNotUygulamasi">
+        <item name="colorPrimary">@color/lime_primary</item>
+        <item name="colorOnPrimary">@color/lime_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/lime_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/lime_onPrimaryContainer</item>
+    </style>
+    <style name="MyOutlinedButton" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:textColor">?attr/destructiveButtonColor</item>
+        <item name="strokeColor">?attr/destructiveButtonColor</item>
+    </style>
+</resources>

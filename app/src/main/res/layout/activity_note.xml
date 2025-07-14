@@ -1,0 +1,397 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    tools:context=".NoteActivity">
+
+    <LinearLayout
+        android:id="@+id/ll_button_container"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <Button
+            android:id="@+id/btn_delete_note"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:text="@string/action_delete"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
+        <Button
+            android:id="@+id/btn_save_note"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="@string/button_save" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/ll_bottom_controls"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingBottom="4dp"
+        app:layout_constraintBottom_toTopOf="@id/ll_button_container"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <HorizontalScrollView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/control_panel_background"
+            android:paddingVertical="4dp"
+            android:scrollbars="none">
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/toggle_button_group"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                app:selectionRequired="false"
+                app:singleSelection="false">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_bold"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:contentDescription="@string/tooltip_bold"
+                    app:icon="@drawable/ic_format_bold_24"
+                    app:iconTint="?attr/colorPrimary"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:strokeWidth="0dp" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_italic"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:contentDescription="@string/tooltip_italic"
+                    app:icon="@drawable/ic_format_italic_24"
+                    app:iconTint="?attr/colorPrimary"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:strokeWidth="0dp" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_strikethrough"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:contentDescription="@string/tooltip_strikethrough"
+                    app:icon="@drawable/ic_format_strikethrough_24"
+                    app:iconTint="?attr/colorPrimary"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:strokeWidth="0dp" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_add_photo"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:contentDescription="Fotoğraf Ekle"
+                    app:icon="@drawable/outline_photo_camera_24"
+                    app:iconTint="?attr/colorPrimary"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:strokeWidth="0dp" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_record_audio"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:contentDescription="Ses Kaydı Yap"
+                    app:icon="@drawable/ic_mic"
+                    app:iconTint="?attr/colorPrimary"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:strokeWidth="0dp" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_voice_note"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:contentDescription="@string/tooltip_voice_note"
+                    app:icon="@drawable/ic_microphone_24"
+                    app:iconTint="?attr/colorPrimary"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:strokeWidth="0dp" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+        </HorizontalScrollView>
+
+        <LinearLayout
+            android:id="@+id/ll_color_pickers"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="8dp">
+
+            <FrameLayout
+                android:id="@+id/color_default"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginHorizontal="4dp"
+                android:background="@drawable/background_color_selector">
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bordered_color_default" />
+            </FrameLayout>
+            <FrameLayout
+                android:id="@+id/color_yellow"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginHorizontal="4dp"
+                android:background="@drawable/background_color_selector">
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bordered_color_yellow" />
+            </FrameLayout>
+            <FrameLayout
+                android:id="@+id/color_blue"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginHorizontal="4dp"
+                android:background="@drawable/background_color_selector">
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bordered_color_blue" />
+            </FrameLayout>
+            <FrameLayout
+                android:id="@+id/color_green"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginHorizontal="4dp"
+                android:background="@drawable/background_color_selector">
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bordered_color_green" />
+            </FrameLayout>
+            <FrameLayout
+                android:id="@+id/color_pink"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginHorizontal="4dp"
+                android:background="@drawable/background_color_selector">
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bordered_color_pink" />
+            </FrameLayout>
+            <FrameLayout
+                android:id="@+id/color_purple"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginHorizontal="4dp"
+                android:background="@drawable/background_color_selector">
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bordered_color_purple" />
+            </FrameLayout>
+            <FrameLayout
+                android:id="@+id/color_orange"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginHorizontal="4dp"
+                android:background="@drawable/background_color_selector">
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bordered_color_orange" />
+            </FrameLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <ScrollView
+        android:id="@+id/sv_edit_history"
+        android:layout_width="0dp"
+        android:layout_height="80dp"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/scrollview_border"
+        android:padding="8dp"
+        android:scrollbars="vertical"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/ll_bottom_controls"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+        <TextView
+            android:id="@+id/tv_edit_history"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/darker_gray"
+            android:textSize="12sp"
+            tools:text="Oluşturulma: 14/06/2025 12:00\nDüzenlemeler:\n- 14/06/2025 12:05\n- 14/06/2025 12:10" />
+    </ScrollView>
+
+    <Button
+        android:id="@+id/btn_add_checklist_item"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginBottom="4dp"
+        android:text="@string/button_add_checklist_item"
+        app:layout_constraintBottom_toTopOf="@id/sv_edit_history"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/til_note_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        app:hintEnabled="false"
+        app:layout_constraintEnd_toStartOf="@id/btn_show_history"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <com.codenzi.snapnote.SelectionAwareEditText
+            android:id="@+id/et_note_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:color/transparent"
+            android:hint="@string/hint_note_title"
+            android:inputType="textCapWords"
+            android:textAppearance="@style/TextAppearance.AppCompat.Large"
+            android:textStyle="bold"
+            android:textColor="@android:color/black"
+            android:textColorHint="@android:color/darker_gray" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <ImageButton
+        android:id="@+id/btn_show_history"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginEnd="16dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/tooltip_edit_history"
+        android:src="@drawable/outline_info_note_24"
+        app:layout_constraintBottom_toBottomOf="@+id/til_note_title"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/til_note_title" />
+
+    <View
+        android:id="@+id/divider"
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="16dp"
+        android:background="@android:color/darker_gray"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/til_note_title" />
+
+    <ScrollView
+        android:id="@+id/sv_main_content"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="16dp"
+        android:fillViewport="true"
+        app:layout_constraintBottom_toTopOf="@id/btn_add_checklist_item"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/divider">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="16dp">
+
+            <ImageView
+                android:id="@+id/iv_image_preview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:adjustViewBounds="true"
+                android:contentDescription="@string/image_preview"
+                android:scaleType="fitCenter"
+                android:visibility="gone"
+                tools:src="@tools:sample/backgrounds/scenic"
+                tools:visibility="visible" />
+
+            <LinearLayout
+                android:id="@+id/ll_audio_player"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="8dp"
+                android:background="@drawable/scrollview_border"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <ImageButton
+                    android:id="@+id/btn_play_pause"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@android:drawable/ic_media_play"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/play" />
+
+                <TextView
+                    android:id="@+id/tv_audio_title"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/voice_recording_title"
+                    android:layout_marginStart="8dp"
+                    android:textColor="?android:attr/textColorSecondary"/>
+            </LinearLayout>
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:hintEnabled="false"
+                app:boxBackgroundMode="none">
+
+                <com.codenzi.snapnote.SelectionAwareEditText
+                    android:id="@+id/et_note_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@android:color/transparent"
+                    android:gravity="top"
+                    android:hint="@string/hint_note_content"
+                    android:inputType="textMultiLine"
+                    android:minLines="3"
+                    android:textColor="@android:color/black"
+                    android:textColorHint="@android:color/darker_gray"
+                    android:textCursorDrawable="@null" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_checklist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp" />
+        </LinearLayout>
+    </ScrollView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="infoButtonTint" format="color"/>
+    <attr name="destructiveButtonColor" format="color"/>
+    <attr name="noteInfoButtonTint" format="color"/>
+</resources>
