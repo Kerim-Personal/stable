@@ -72,6 +72,8 @@ class NoteAdapter(
         private val noteImage: ImageView = itemView.findViewById(R.id.iv_note_item_image)
         private val audioPlayerPreview: LinearLayout = itemView.findViewById(R.id.ll_audio_player_preview)
         private val audioTitlePreview: TextView = itemView.findViewById(R.id.tv_audio_title_preview)
+        // Yeni TextView'ı ekliyoruz
+        private val checklistSummary: TextView = itemView.findViewById(R.id.tv_checklist_summary)
 
         fun bind(note: Note) {
             noteTitle.isVisible = note.title.isNotBlank()
@@ -83,26 +85,17 @@ class NoteAdapter(
                 val content = gson.fromJson(note.content, NoteContent::class.java)
                 val textPreview: Spanned = Html.fromHtml(content.text, Html.FROM_HTML_MODE_LEGACY)
 
-                val hasText = textPreview.isNotBlank()
-                val hasChecklist = content.checklist.isNotEmpty()
+                noteContent.isVisible = textPreview.isNotBlank()
+                noteContent.text = textPreview
 
-                noteContent.isVisible = hasText || hasChecklist
-
-                if (hasText) {
-                    noteContent.text = textPreview
-                } else {
-                    noteContent.text = ""
-                }
-
-                if (hasChecklist) {
-                    val checklistSummary = StringBuilder()
-                    if (hasText) {
-                        checklistSummary.append("\n\n")
-                    }
+                if (content.checklist.isNotEmpty()) {
+                    checklistSummary.visibility = View.VISIBLE
                     val checkedCount = content.checklist.count { it.isChecked }
-                    checklistSummary.append(itemView.context.getString(R.string.checklist_summary_preview, checkedCount, content.checklist.size))
-                    noteContent.append(checklistSummary.toString())
+                    checklistSummary.text = itemView.context.getString(R.string.checklist_summary_preview, checkedCount, content.checklist.size)
+                } else {
+                    checklistSummary.visibility = View.GONE
                 }
+
 
                 noteImage.isVisible = content.imagePath != null
                 if (content.imagePath != null) {
@@ -126,6 +119,7 @@ class NoteAdapter(
                 noteContent.isVisible = preview.isNotBlank()
                 noteImage.visibility = View.GONE
                 audioPlayerPreview.visibility = View.GONE
+                checklistSummary.visibility = View.GONE
             }
 
             if (selectedItems.contains(note.id)) {
