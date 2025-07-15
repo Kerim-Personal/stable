@@ -90,7 +90,7 @@ class AudioRecordingService : Service() {
 
         } catch (e: IOException) {
             e.printStackTrace()
-            try { cleanup() } catch (ignored: Exception) {}
+            try { cleanup() } catch (_: Exception) {}
         }
     }
 
