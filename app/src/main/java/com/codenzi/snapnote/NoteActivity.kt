@@ -76,7 +76,6 @@ class NoteActivity : AppCompatActivity() {
     private var utteranceStartPosition = 0
     private val restartHandler = Handler(Looper.getMainLooper())
 
-    // --- DOSYA SIZINTISI İÇİN GÜNCELLEME ---
     // Dosya yolları ve URI'ler
     private var audioPath: String? = null
     private var imagePath: String? = null // Hem geçici hem kalıcı yolu tutacak
@@ -85,10 +84,8 @@ class NoteActivity : AppCompatActivity() {
     private var isFromWidget = false
 
     companion object {
-        // `tempPhotoUri` yerine geçici dosyanın yolunu saklayacağız.
         private const val KEY_TEMP_PHOTO_PATH = "KEY_TEMP_PHOTO_PATH"
     }
-    // --- BİTİŞ ---
 
     // İzin ve Aktivite Sonuçları için Launcher'lar
     private val requestCameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
@@ -105,13 +102,9 @@ class NoteActivity : AppCompatActivity() {
         }
     }
 
-    // --- DOSYA SIZINTISI İÇİN GÜNCELLEME ---
     private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         val capturedUri = tempPhotoUri
         if (success && capturedUri != null) {
-            // imagePath artık geçici dosyanın yolunu tutuyor.
-            // Bu yol, performSave içinde kalıcı hale getirilecek.
-            // Bu noktada imagePath'in set edildiğinden eminiz çünkü takePicture() içinde yapıyoruz.
             binding.ivImagePreview.visibility = View.VISIBLE
             binding.ivImagePreview.load(capturedUri)
 
@@ -120,28 +113,22 @@ class NoteActivity : AppCompatActivity() {
                 binding.etNoteTitle.setText(titleWithTimestamp)
             }
         } else {
-            // Başarısızlık durumunda yolları temizle
             imagePath = null
             tempPhotoUri = null
         }
     }
-    // --- BİTİŞ ---
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
 
-        // --- DOSYA SIZINTISI İÇİN GÜNCELLEME ---
-        // Ekran döndürme gibi durumlarda geçici resim yolunu kurtar
         if (savedInstanceState != null) {
             savedInstanceState.getString(KEY_TEMP_PHOTO_PATH)?.let { path ->
                 imagePath = path
-                // Eğer yol varsa, URI'sini de oluştur.
                 tempPhotoUri = FileProvider.getUriForFile(this, "${packageName}.provider", File(path))
             }
         }
-        // --- BİTİŞ ---
 
         binding = ActivityNoteBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -163,15 +150,12 @@ class NoteActivity : AppCompatActivity() {
         })
     }
 
-    // --- DOSYA SIZINTISI İÇİN GÜNCELLEME ---
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        // Yalnızca geçici bir dosya varsa yolunu kaydet
         if (imagePath != null && imagePath!!.contains(ImageManager.TEMP_IMAGE_PREFIX)) {
             outState.putString(KEY_TEMP_PHOTO_PATH, imagePath)
         }
     }
-    // --- BİTİŞ ---
 
     private fun getColorFromAttr(attrResId: Int): Int {
         val typedValue = android.util.TypedValue()
@@ -255,14 +239,11 @@ class NoteActivity : AppCompatActivity() {
         binding.btnVoiceNote.setOnClickListener { toggleSpeechToText() }
     }
 
-    // --- DOSYA SIZINTISI İÇİN GÜNCELLEME ---
     private fun performSave() {
         val titleText = binding.etNoteTitle.text.toString().trim()
         val noteContentText = binding.etNoteInput.text
 
         if (titleText.isBlank() && noteContentText.isNullOrBlank() && checklistItems.all { it.text.isBlank() } && imagePath == null && audioPath == null) {
-            // Boş not kaydedilmeyeceği için, oluşturulmuş geçici dosyalar
-            // uygulama açılışındaki temizlik mekanizmasıyla silinecek.
             finish()
             return
         }
@@ -275,7 +256,6 @@ class NoteActivity : AppCompatActivity() {
             ""
         }
 
-        // Geçici resmi kalıcı hale getir
         var permanentImagePath: String? = imagePath
         if (imagePath != null && imagePath!!.contains(ImageManager.TEMP_IMAGE_PREFIX)) {
             permanentImagePath = ImageManager.makeImagePermanent(this, imagePath!!)
@@ -291,26 +271,37 @@ class NoteActivity : AppCompatActivity() {
             checklistItems = checklistItems,
             color = selectedColor,
             audioPath = audioPath,
-            imagePath = permanentImagePath, // Kalıcı veya mevcut yolu gönder
+            imagePath = permanentImagePath,
             isFromWidget = isFromWidget
         )
         updateAllWidgets()
     }
-    // --- BİTİŞ ---
 
-    // --- DOSYA SIZINTISI İÇİN GÜNCELLEME ---
     private fun takePicture() {
+        if (imagePath != null && File(imagePath!!).exists()) {
+            AlertDialog.Builder(this)
+                .setTitle("Mevcut Fotoğrafı Değiştir")
+                .setMessage("Yeni bir fotoğraf çekmek, mevcut fotoğrafın üzerine yazacaktır. Devam etmek istiyor musunuz?")
+                .setPositiveButton("Evet") { _, _ ->
+                    proceedWithTakePicture()
+                }
+                .setNegativeButton("Hayır", null)
+                .show()
+        } else {
+            proceedWithTakePicture()
+        }
+    }
+
+    private fun proceedWithTakePicture() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            // ImageManager'dan geçici dosya ve URI'sini al.
             val (tempFile, tempUri) = ImageManager.createTempImageFile(this)
-            this.imagePath = tempFile.absolutePath // Geçici yolu sakla
-            this.tempPhotoUri = tempUri // Kameranın kullanacağı URI'yi sakla
+            this.imagePath = tempFile.absolutePath
+            this.tempPhotoUri = tempUri
             takePictureLauncher.launch(tempUri)
         } else {
             requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
-    // --- BİTİŞ ---
 
     private fun toggleRecording() {
         if (isRecording) {
@@ -325,6 +316,21 @@ class NoteActivity : AppCompatActivity() {
     }
 
     private fun startRecording() {
+        if (audioPath != null && File(audioPath!!).exists()) {
+            AlertDialog.Builder(this)
+                .setTitle("Mevcut Kaydı Değiştir")
+                .setMessage("Yeni bir ses kaydı başlatmak, mevcut kaydın üzerine yazacaktır. Devam etmek istiyor musunuz?")
+                .setPositiveButton("Evet") { _, _ ->
+                    proceedWithRecording()
+                }
+                .setNegativeButton("Hayır", null)
+                .show()
+        } else {
+            proceedWithRecording()
+        }
+    }
+
+    private fun proceedWithRecording() {
         try {
             val audioFile = createAudioFile()
             audioPath = audioFile.absolutePath
