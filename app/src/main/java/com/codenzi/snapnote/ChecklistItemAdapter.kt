@@ -13,7 +13,9 @@ import android.widget.ImageButton
 import androidx.recyclerview.widget.RecyclerView
 
 class ChecklistItemAdapter(
-    private val items: MutableList<ChecklistItem>
+    // --- DEĞİŞİKLİK BURADA ---
+    // 'private val' yerine 'val' kullanarak 'items' listesini public hale getirdik.
+    val items: MutableList<ChecklistItem>
 ) : RecyclerView.Adapter<ChecklistItemAdapter.ChecklistItemViewHolder>() {
 
     private var currentTextColor: Int = Color.BLACK

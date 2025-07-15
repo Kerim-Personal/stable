@@ -48,6 +48,7 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.Objects
 
 @AndroidEntryPoint
 class NoteActivity : AppCompatActivity() {
@@ -82,6 +83,38 @@ class NoteActivity : AppCompatActivity() {
     private var tempPhotoUri: Uri? = null // Yalnızca kameranın kullanacağı geçici URI
 
     private var isFromWidget = false
+
+    // --- DEĞİŞİKLİK KONTROLÜ İÇİN EKLENEN KOD BAŞLANGICI ---
+    private data class NoteState(
+        val title: String,
+        val contentHtml: String,
+        val checklist: List<ChecklistItem>,
+        val color: String,
+        val imagePath: String?,
+        val audioPath: String?
+    ) {
+        // Kontrol listesinin doğru karşılaştırılması için equals metodunu override ediyoruz.
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+            other as NoteState
+            return title == other.title &&
+                    contentHtml == other.contentHtml &&
+                    color == other.color &&
+                    imagePath == other.imagePath &&
+                    audioPath == other.audioPath &&
+                    checklist.size == other.checklist.size &&
+                    checklist.indices.all { i -> checklist[i] == other.checklist[i] }
+        }
+
+        override fun hashCode(): Int {
+            return Objects.hash(title, contentHtml, checklist, color, imagePath, audioPath)
+        }
+    }
+
+    private var initialNoteState: NoteState? = null
+    // --- DEĞİŞİKLİK KONTROLÜ İÇİN EKLENEN KOD SONU ---
+
 
     companion object {
         private const val KEY_TEMP_PHOTO_PATH = "KEY_TEMP_PHOTO_PATH"
@@ -214,13 +247,7 @@ class NoteActivity : AppCompatActivity() {
         }
 
         binding.btnSaveNote.setOnClickListener {
-            val titleText = binding.etNoteTitle.text.toString().trim()
-            val noteContentText = binding.etNoteInput.text
-            if (titleText.isBlank() && noteContentText.isNullOrBlank() && checklistItems.all { it.text.isBlank() } && imagePath == null && audioPath == null) {
-                Toast.makeText(this, R.string.toast_empty_note, Toast.LENGTH_SHORT).show()
-            } else {
-                performSave()
-            }
+            performSave()
         }
 
         binding.btnDeleteNote.setOnClickListener { showDeleteConfirmationDialog() }
@@ -239,12 +266,38 @@ class NoteActivity : AppCompatActivity() {
         binding.btnVoiceNote.setOnClickListener { toggleSpeechToText() }
     }
 
+    // --- DEĞİŞİKLİK KONTROLÜ İÇİN YENİ FONKSİYON ---
+    private fun isNoteModified(): Boolean {
+        if (initialNoteState == null) return true // Eğer başlangıç durumu yoksa, her zaman değiştirilmiş kabul et.
+
+        val currentState = NoteState(
+            title = binding.etNoteTitle.text.toString(),
+            contentHtml = Html.toHtml(binding.etNoteInput.text, Html.TO_HTML_PARAGRAPH_LINES_CONSECUTIVE),
+            checklist = checklistAdapter.items,
+            color = selectedColor,
+            imagePath = this.imagePath,
+            audioPath = this.audioPath
+        )
+        return currentState != initialNoteState
+    }
+
     private fun performSave() {
+        // Not tamamen boşsa kaydetme ve uyarı göster
         val titleText = binding.etNoteTitle.text.toString().trim()
         val noteContentText = binding.etNoteInput.text
+        val isContentEmpty = titleText.isBlank() &&
+                noteContentText.isNullOrBlank() &&
+                checklistItems.all { it.text.isBlank() } &&
+                imagePath == null && audioPath == null
 
-        if (titleText.isBlank() && noteContentText.isNullOrBlank() && checklistItems.all { it.text.isBlank() } && imagePath == null && audioPath == null) {
-            finish()
+        if (isContentEmpty) {
+            Toast.makeText(this, R.string.toast_empty_note, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // --- DEĞİŞİKLİK KONTROLÜ ---
+        if (!isNoteModified()) {
+            finish() // Değişiklik yoksa kaydetmeden çık.
             return
         }
 
@@ -280,12 +333,12 @@ class NoteActivity : AppCompatActivity() {
     private fun takePicture() {
         if (imagePath != null && File(imagePath!!).exists()) {
             AlertDialog.Builder(this)
-                .setTitle("Mevcut Fotoğrafı Değiştir")
-                .setMessage("Yeni bir fotoğraf çekmek, mevcut fotoğrafın üzerine yazacaktır. Devam etmek istiyor musunuz?")
-                .setPositiveButton("Evet") { _, _ ->
+                .setTitle(getString(R.string.overwrite_photo_title))
+                .setMessage(getString(R.string.overwrite_photo_message))
+                .setPositiveButton(getString(R.string.dialog_yes)) { _, _ ->
                     proceedWithTakePicture()
                 }
-                .setNegativeButton("Hayır", null)
+                .setNegativeButton(getString(R.string.dialog_no), null)
                 .show()
         } else {
             proceedWithTakePicture()
@@ -318,12 +371,12 @@ class NoteActivity : AppCompatActivity() {
     private fun startRecording() {
         if (audioPath != null && File(audioPath!!).exists()) {
             AlertDialog.Builder(this)
-                .setTitle("Mevcut Kaydı Değiştir")
-                .setMessage("Yeni bir ses kaydı başlatmak, mevcut kaydın üzerine yazacaktır. Devam etmek istiyor musunuz?")
-                .setPositiveButton("Evet") { _, _ ->
+                .setTitle(getString(R.string.overwrite_audio_title))
+                .setMessage(getString(R.string.overwrite_audio_message))
+                .setPositiveButton(getString(R.string.dialog_yes)) { _, _ ->
                     proceedWithRecording()
                 }
-                .setNegativeButton("Hayır", null)
+                .setNegativeButton(getString(R.string.dialog_no), null)
                 .show()
         } else {
             proceedWithRecording()
@@ -693,6 +746,16 @@ class NoteActivity : AppCompatActivity() {
             selectedColor = "#FFECEFF1"
             updateColorSelection(binding.colorDefault)
             updateWindowBackground()
+
+            // --- YENİ NOT İÇİN BAŞLANGIÇ DURUMUNU AYARLA ---
+            initialNoteState = NoteState(
+                title = "",
+                contentHtml = "",
+                checklist = emptyList(),
+                color = selectedColor,
+                imagePath = null,
+                audioPath = null
+            )
             return
         }
 
@@ -732,6 +795,16 @@ class NoteActivity : AppCompatActivity() {
                 binding.ivImagePreview.visibility = View.GONE
             }
 
+            // --- MEVCUT NOT İÇİN BAŞLANGIÇ DURUMUNU AYARLA ---
+            initialNoteState = NoteState(
+                title = note.title,
+                contentHtml = content.text,
+                checklist = content.checklist.map { it.copy() }, // Değişiklikleri izlemek için derin kopya
+                color = note.color,
+                imagePath = content.imagePath,
+                audioPath = content.audioFilePath
+            )
+
         } catch (_: JsonSyntaxException) {
             binding.etNoteInput.setText(Html.fromHtml(note.content, Html.FROM_HTML_MODE_LEGACY))
             val oldSize = checklistItems.size
@@ -741,6 +814,16 @@ class NoteActivity : AppCompatActivity() {
             audioPath = null
             binding.ivImagePreview.visibility = View.GONE
             imagePath = null
+
+            // --- ESKİ NOT FORMATI İÇİN BAŞLANGIÇ DURUMUNU AYARLA ---
+            initialNoteState = NoteState(
+                title = note.title,
+                contentHtml = note.content,
+                checklist = emptyList(),
+                color = note.color,
+                imagePath = null,
+                audioPath = null
+            )
         }
         selectedColor = note.color
         updateWindowBackground()

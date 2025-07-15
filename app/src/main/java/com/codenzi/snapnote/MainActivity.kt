@@ -94,7 +94,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.notes.collect { notes ->
-                    noteAdapter.updateNotes(notes)
+                    noteAdapter.updateNotes(notes) // Bu metod artık submitList kullanıyor.
                     binding.tvEmptyNotes.visibility = if (notes.isEmpty()) View.VISIBLE else View.GONE
                     binding.rvNotes.visibility = if (notes.isEmpty()) View.GONE else View.VISIBLE
                 }
@@ -140,8 +140,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        noteAdapter = NoteAdapter(emptyList(),
-            { note ->
+        // --- HATA DÜZELTME BAŞLANGICI ---
+        // NoteAdapter'ı yeni kurucu metoda (constructor) göre başlatıyoruz.
+        // Artık başlangıçta boş liste göndermiyoruz ve long-click lambda'sının 'true' döndürmesini sağlıyoruz.
+        noteAdapter = NoteAdapter(
+            clickListener = { note ->
                 if (isSelectionMode) {
                     toggleSelection(note)
                 } else {
@@ -151,13 +154,16 @@ class MainActivity : AppCompatActivity() {
                     startActivity(intent)
                 }
             },
-            { note ->
+            longClickListener = { note ->
                 if (!isSelectionMode) {
                     enterSelectionMode()
                 }
                 toggleSelection(note)
+                true // Uzun basma olayını tükettiğimizi belirtmek için true döndür.
             }
         )
+        // --- HATA DÜZELTME SONU ---
+
         binding.rvNotes.adapter = noteAdapter
         binding.rvNotes.layoutManager = LinearLayoutManager(this)
     }
@@ -426,13 +432,11 @@ class MainActivity : AppCompatActivity() {
                 titleView.visibility = View.GONE
             }
 
-            // *** DÜZELTME BAŞLANGICI ***
             if (noteContent.imagePath != null) {
                 try {
                     val path = noteContent.imagePath
                     val imageBitmap: Bitmap?
 
-                    // URI veya dosya yolu olmasına göre farklı yükleme yöntemleri kullan
                     if (path.startsWith("content://")) {
                         val imageUri = Uri.parse(path)
                         val inputStream = contentResolver.openInputStream(imageUri)
@@ -460,7 +464,6 @@ class MainActivity : AppCompatActivity() {
             } else {
                 imageView.visibility = View.GONE
             }
-            // *** DÜZELTME SONU ***
 
             val contentBuilder = StringBuilder()
             if (noteContent.text.isNotBlank()) {

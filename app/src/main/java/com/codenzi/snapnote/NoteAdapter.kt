@@ -4,16 +4,18 @@ import android.graphics.Color
 import android.net.Uri
 import android.text.Html
 import android.text.Spanned
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.google.android.material.card.MaterialCardView
@@ -22,16 +24,15 @@ import com.google.gson.JsonSyntaxException
 import java.io.File
 
 class NoteAdapter(
-    private var notes: List<Note>,
     private val clickListener: (Note) -> Unit,
-    private val longClickListener: (Note) -> Unit
-) : RecyclerView.Adapter<NoteAdapter.NoteViewHolder>() {
+    private val longClickListener: (Note) -> Boolean
+) : ListAdapter<Note, NoteAdapter.NoteViewHolder>(NoteDiffCallback()) {
 
     private val selectedItems = mutableSetOf<Int>()
     private val gson = Gson()
 
     fun toggleSelection(noteId: Int) {
-        val index = notes.indexOfFirst { it.id == noteId }
+        val index = currentList.indexOfFirst { it.id == noteId }
         if (index == -1) return
 
         if (selectedItems.contains(noteId)) {
@@ -43,12 +44,12 @@ class NoteAdapter(
     }
 
     fun getSelectedNotes(): List<Note> {
-        return notes.filter { selectedItems.contains(it.id) }
+        return currentList.filter { selectedItems.contains(it.id) }
     }
 
     fun clearSelections() {
         val previouslySelectedIndices = selectedItems.mapNotNull { selectedId ->
-            notes.indexOfFirst { it.id == selectedId }.takeIf { it != -1 }
+            currentList.indexOfFirst { it.id == selectedId }.takeIf { it != -1 }
         }
         selectedItems.clear()
         previouslySelectedIndices.forEach { notifyItemChanged(it) }
@@ -57,11 +58,11 @@ class NoteAdapter(
     fun getSelectedItemCount(): Int = selectedItems.size
 
     fun selectAll() {
-        if (notes.isEmpty()) return
-        val allNoteIds = notes.map { it.id }
+        if (currentList.isEmpty()) return
+        val allNoteIds = currentList.map { it.id }
         selectedItems.clear()
         selectedItems.addAll(allNoteIds)
-        notifyItemRangeChanged(0, notes.size)
+        notifyItemRangeChanged(0, currentList.size)
     }
 
     inner class NoteViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -75,20 +76,27 @@ class NoteAdapter(
         private val checklistSummary: TextView = itemView.findViewById(R.id.tv_checklist_summary)
 
         fun bind(note: Note) {
+            val backgroundColor = try {
+                note.color.toColorInt()
+            } catch (e: Exception) {
+                Color.WHITE
+            }
+            val contrastingTextColor = if (ColorUtils.calculateLuminance(backgroundColor) > 0.5) {
+                Color.BLACK
+            } else {
+                Color.WHITE
+            }
+
+            cardContainer.setCardBackgroundColor(backgroundColor)
+            noteTitle.setTextColor(contrastingTextColor)
+            noteContent.setTextColor(contrastingTextColor)
+            checklistSummary.setTextColor(contrastingTextColor)
+            audioTitlePreview.setTextColor(contrastingTextColor)
+            pinnedIcon.setColorFilter(contrastingTextColor)
+
             noteTitle.isVisible = note.title.isNotBlank()
             noteTitle.text = note.title
-
             pinnedIcon.isVisible = note.showOnWidget
-
-            // --- YENİ EKLENEN KOD BAŞLANGICI ---
-            // Tüm temalarda metin rengini siyah yap
-            val blackColor = Color.BLACK
-            noteTitle.setTextColor(blackColor)
-            noteContent.setTextColor(blackColor)
-            checklistSummary.setTextColor(blackColor)
-            audioTitlePreview.setTextColor(blackColor)
-            pinnedIcon.setColorFilter(blackColor)
-            // --- YENİ EKLENEN KOD SONU ---
 
             try {
                 val content = gson.fromJson(note.content, NoteContent::class.java)
@@ -97,18 +105,14 @@ class NoteAdapter(
                 noteContent.isVisible = textPreview.isNotBlank()
                 noteContent.text = textPreview
 
+                checklistSummary.isVisible = content.checklist.isNotEmpty()
                 if (content.checklist.isNotEmpty()) {
-                    checklistSummary.visibility = View.VISIBLE
                     val checkedCount = content.checklist.count { it.isChecked }
                     checklistSummary.text = itemView.context.getString(R.string.checklist_summary_preview, checkedCount, content.checklist.size)
-                } else {
-                    checklistSummary.visibility = View.GONE
                 }
 
-
                 noteImage.isVisible = content.imagePath != null
-                if (content.imagePath != null) {
-                    val path = content.imagePath
+                content.imagePath?.let { path ->
                     val dataToLoad: Any = if (path.startsWith("content://")) Uri.parse(path) else File(path)
                     noteImage.load(dataToLoad) {
                         crossfade(true)
@@ -118,7 +122,7 @@ class NoteAdapter(
                 }
 
                 audioPlayerPreview.isVisible = content.audioFilePath != null
-                if (content.audioFilePath != null) {
+                content.audioFilePath?.let {
                     audioTitlePreview.text = note.title.ifBlank { itemView.context.getString(R.string.voice_recording_title) }
                 }
 
@@ -131,24 +135,20 @@ class NoteAdapter(
                 checklistSummary.visibility = View.GONE
             }
 
+            // --- YENİ DİNAMİK RENK ATAMASI ---
             if (selectedItems.contains(note.id)) {
                 cardContainer.strokeWidth = 8
-                cardContainer.strokeColor = ContextCompat.getColor(cardContainer.context, android.R.color.holo_blue_dark)
+                // Mevcut temadan 'colorPrimary' özniteliğinin rengini alıyoruz.
+                val typedValue = TypedValue()
+                cardContainer.context.theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, typedValue, true)
+                cardContainer.strokeColor = typedValue.data
             } else {
                 cardContainer.strokeWidth = 0
             }
-
-            try {
-                cardContainer.setCardBackgroundColor(note.color.toColorInt())
-            } catch (e: Exception) {
-                cardContainer.setCardBackgroundColor(Color.WHITE)
-            }
+            // --- DEĞİŞİKLİK SONU ---
 
             itemView.setOnClickListener { clickListener(note) }
-            itemView.setOnLongClickListener {
-                longClickListener(note)
-                true
-            }
+            itemView.setOnLongClickListener { longClickListener(note) }
         }
     }
 
@@ -158,32 +158,20 @@ class NoteAdapter(
     }
 
     override fun onBindViewHolder(holder: NoteViewHolder, position: Int) {
-        holder.bind(notes[position])
+        holder.bind(getItem(position))
     }
 
-    override fun getItemCount() = notes.size
-
     fun updateNotes(newNotes: List<Note>) {
-        val diffCallback = NoteDiffCallback(this.notes, newNotes)
-        val diffResult = DiffUtil.calculateDiff(diffCallback)
-        this.notes = newNotes
-        diffResult.dispatchUpdatesTo(this)
+        submitList(newNotes)
     }
 }
 
-class NoteDiffCallback(
-    private val oldList: List<Note>,
-    private val newList: List<Note>
-) : DiffUtil.Callback() {
-
-    override fun getOldListSize(): Int = oldList.size
-    override fun getNewListSize(): Int = newList.size
-
-    override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-        return oldList[oldItemPosition].id == newList[newItemPosition].id
+class NoteDiffCallback : DiffUtil.ItemCallback<Note>() {
+    override fun areItemsTheSame(oldItem: Note, newItem: Note): Boolean {
+        return oldItem.id == newItem.id
     }
 
-    override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-        return oldList[oldItemPosition] == newList[newItemPosition]
+    override fun areContentsTheSame(oldItem: Note, newItem: Note): Boolean {
+        return oldItem == newItem
     }
 }

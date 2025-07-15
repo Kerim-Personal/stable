@@ -72,6 +72,10 @@
     <string name="tooltip_strikethrough">Strikethrough</string>
     <string name="tooltip_voice_note">Add Voice Note</string>
     <string name="tooltip_edit_history">Show Edit History</string>
+    <string name="overwrite_photo_title">Replace Existing Photo</string>
+    <string name="overwrite_photo_message">Taking a new photo will overwrite the existing one. Do you want to continue?</string>
+    <string name="overwrite_audio_title">Replace Existing Recording</string>
+    <string name="overwrite_audio_message">Starting a new audio recording will overwrite the existing one. Do you want to continue?</string>
 
 
     <string name="delete_note_confirmation_title">Delete Note</string>

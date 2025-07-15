@@ -67,21 +67,24 @@ class TrashActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        deletedNoteAdapter = NoteAdapter(emptyList(),
-            { note ->
+        // --- HATA DÜZELTME BAŞLANGICI ---
+        deletedNoteAdapter = NoteAdapter(
+            clickListener = { note ->
                 if (isSelectionMode) {
                     toggleSelection(note)
                 } else {
                     showSingleNoteOptionsDialog(note)
                 }
             },
-            { note ->
+            longClickListener = { note ->
                 if (!isSelectionMode) {
                     enterSelectionMode()
                 }
                 toggleSelection(note)
+                true // Uzun basma olayını tükettiğimizi belirtmek için true döndür.
             }
         )
+        // --- HATA DÜZELTME SONU ---
         binding.rvDeletedNotes.adapter = deletedNoteAdapter
         binding.rvDeletedNotes.layoutManager = LinearLayoutManager(this)
     }
@@ -200,7 +203,6 @@ class TrashActivity : AppCompatActivity() {
         try {
             if (path.startsWith("content://")) {
                 val uri = Uri.parse(path)
-                // URI'den dosya silme (özellikle FileProvider URI'leri için)
                 contentResolver.delete(uri, null, null)
             } else {
                 val file = File(path)

@@ -55,11 +55,10 @@
     <string name="tooltip_strikethrough">Üstü Çizili</string>
     <string name="tooltip_voice_note">Sesli Not Ekle</string>
     <string name="tooltip_edit_history">Düzenleme Geçmişini Göster</string>
-
-    <string name="sort_dialog_title">Notları Sırala</string>
-    <string name="sort_by_creation_date_newest">Oluşturma Tarihi (Yeniden Eskiye)</string>
-    <string name="sort_by_creation_date_oldest">Oluşturma Tarihi (Eskiden Yeniye)</string>
-    <string name="sort_by_content_az">İçerik (A-Z)</string>
+    <string name="overwrite_photo_title">Mevcut Fotoğrafı Değiştir</string>
+    <string name="overwrite_photo_message">Yeni bir fotoğraf çekmek, mevcut fotoğrafın üzerine yazacaktır. Devam etmek istiyor musunuz?</string>
+    <string name="overwrite_audio_title">Mevcut Kaydı Değiştir</string>
+    <string name="overwrite_audio_message">Yeni bir ses kaydı başlatmak, mevcut kaydın üzerine yazacaktır. Devam etmek istiyor musunuz?</string>
 
     <string name="delete_note_confirmation_title">Notu Sil</string>
     <string name="delete_note_confirmation_message">Bu notu kalıcı olarak silmek istediğinizden emin misiniz?</string>
