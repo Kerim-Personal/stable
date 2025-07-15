@@ -1,5 +1,6 @@
 package com.codenzi.snapnote
 
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.Menu
@@ -178,20 +179,13 @@ class TrashActivity : AppCompatActivity() {
                 try {
                     val content = gson.fromJson(note.content, NoteContent::class.java)
 
-                    content.imagePath?.let { path ->
-                        val imageFile = File(path)
-                        if (imageFile.exists()) {
-                            imageFile.delete()
-                        }
-                    }
-                    content.audioFilePath?.let { path ->
-                        val audioFile = File(path)
-                        if (audioFile.exists()) {
-                            audioFile.delete()
-                        }
-                    }
+                    content.imagePath?.let { path -> deleteFileFromPath(path) }
+                    content.audioFilePath?.let { path -> deleteFileFromPath(path) }
+
                 } catch (e: JsonSyntaxException) {
                     Log.e("TrashActivity", "Error parsing note content while deleting", e)
+                } catch (e: Exception) {
+                    Log.e("TrashActivity", "Error deleting files for note ${note.id}", e)
                 }
             }
 
@@ -199,6 +193,23 @@ class TrashActivity : AppCompatActivity() {
             noteDao.hardDeleteByIds(noteIds)
             Toast.makeText(applicationContext, resources.getQuantityString(R.plurals.notes_deleted_toast, notes.size, notes.size), Toast.LENGTH_SHORT).show()
             exitSelectionMode()
+        }
+    }
+
+    private fun deleteFileFromPath(path: String) {
+        try {
+            if (path.startsWith("content://")) {
+                val uri = Uri.parse(path)
+                // URI'den dosya silme (özellikle FileProvider URI'leri için)
+                contentResolver.delete(uri, null, null)
+            } else {
+                val file = File(path)
+                if (file.exists()) {
+                    file.delete()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("TrashActivity", "Failed to delete file: $path", e)
         }
     }
 

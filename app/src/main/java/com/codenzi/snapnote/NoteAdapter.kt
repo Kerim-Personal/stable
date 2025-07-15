@@ -72,7 +72,6 @@ class NoteAdapter(
         private val noteImage: ImageView = itemView.findViewById(R.id.iv_note_item_image)
         private val audioPlayerPreview: LinearLayout = itemView.findViewById(R.id.ll_audio_player_preview)
         private val audioTitlePreview: TextView = itemView.findViewById(R.id.tv_audio_title_preview)
-        // Yeni TextView'ı ekliyoruz
         private val checklistSummary: TextView = itemView.findViewById(R.id.tv_checklist_summary)
 
         fun bind(note: Note) {
@@ -80,6 +79,16 @@ class NoteAdapter(
             noteTitle.text = note.title
 
             pinnedIcon.isVisible = note.showOnWidget
+
+            // --- YENİ EKLENEN KOD BAŞLANGICI ---
+            // Tüm temalarda metin rengini siyah yap
+            val blackColor = Color.BLACK
+            noteTitle.setTextColor(blackColor)
+            noteContent.setTextColor(blackColor)
+            checklistSummary.setTextColor(blackColor)
+            audioTitlePreview.setTextColor(blackColor)
+            pinnedIcon.setColorFilter(blackColor)
+            // --- YENİ EKLENEN KOD SONU ---
 
             try {
                 val content = gson.fromJson(note.content, NoteContent::class.java)
