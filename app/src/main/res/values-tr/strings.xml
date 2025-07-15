@@ -19,6 +19,11 @@
     <string name="add_note_fab_description">Yeni Not Ekle</string>
     <string name="empty_notes_message">Henüz hiç notunuz yok.</string>
 
+    <string name="sort_dialog_title">Notları Sırala</string>
+    <string name="sort_by_creation_date_newest">Oluşturma Tarihi (Yeniden Eskiye)</string>
+    <string name="sort_by_creation_date_oldest">Oluşturma Tarihi (Eskiden Yeniye)</string>
+    <string name="sort_by_content_az">İçerik (A-Z)</string>
+
     <string name="title_activity_new_note">Yeni Not Ekle</string>
     <string name="title_activity_edit_note">Notu Düzenle</string>
     <string name="button_save">Kaydet</string>
@@ -61,7 +66,6 @@
     <string name="overwrite_audio_message">Yeni bir ses kaydı başlatmak, mevcut kaydın üzerine yazacaktır. Devam etmek istiyor musunuz?</string>
 
     <string name="delete_note_confirmation_title">Notu Sil</string>
-    <string name="delete_note_confirmation_message">Bu notu kalıcı olarak silmek istediğinizden emin misiniz?</string>
     <string name="delete_note_to_trash_confirmation_message">Bu notu çöp kutusuna taşımak istediğinizden emin misiniz?</string>
     <string name="dialog_move_to_trash">Çöp Kutusuna Taşı</string>
     <string name="note_moved_to_trash_toast">Not çöp kutusuna taşındı.</string>
@@ -221,7 +225,7 @@
     <string name="restore_failed_with_error">Geri yükleme işlemi başarısız: %s</string>
     <string name="backup_not_found">Google Drive\'da yedekleme dosyası bulunamadı.</string>
     <string name="restore_dialog_title">Notları Geri Yükle</string>
-    <string name="restore_dialog_message">Notları Google Drive\'dan geri yüklemek istediğinizden emin misiniz? Bu, mevcut tüm notlarınızın üzerine yazacak ve geri alınamaz.</string>
+    <string name="restore_from_drive_dialog_message">Notları Google Drive\'dan geri yüklemek istediğinizden emin misiniz? Bu, mevcut tüm notlarınızın üzerine yazacak ve geri alınamaz.</string>
     <string name="restore_confirm">Evet, Geri Yükle</string>
     <string name="restore_success">Notlar başarıyla geri yüklendi!</string>
     <string name="existing_backup_found_title">Mevcut Yedek Bulundu</string>
@@ -254,4 +258,18 @@
     <string name="an_error_occurred_during_backup_simple">Yedekleme sırasında bir hata oluştu.</string>
     <string name="progress_percentage_format" translatable="false">%d%%</string>
     <string name="no_notes_to_backup">Yedeklenecek not bulunmuyor.</string>
+
+    <string name="export_to_phone_title">Telefona Aktar</string>
+    <string name="export_to_phone_summary">Tüm notları ve medyayı bir ZIP dosyası olarak kaydeder.</string>
+    <string name="import_from_phone_title">Telefondan Geri Yükle</string>
+    <string name="import_from_phone_summary">Daha önce dışa aktardığınız bir ZIP dosyasından notları geri yükler.</string>
+    <string name="export_successful">Yedekleme başarıyla telefona aktarıldı.</string>
+    <string name="export_failed">Dışa aktarma sırasında bir hata oluştu.</string>
+    <string name="import_successful">Notlar başarıyla geri yüklendi.</string>
+    <string name="import_failed">Geri yükleme başarısız oldu.</string>
+    <string name="import_dialog_title">Notları İçe Aktar</string>
+    <string name="import_dialog_message">Telefondaki yedekleme dosyasından notları geri yüklemek istediğinizden emin misiniz? Bu, mevcut tüm notlarınızın üzerine yazacak ve geri alınamaz.</string>
+    <string name="import_password_protected_message">Bu yedekleme dosyası şifre korumalıdır. Devam etmek için lütfen şifrenizi girin.</string>
+    <string name="action_export_in_progress">Dışa Aktarılıyor...</string>
+    <string name="action_import_in_progress">İçe Aktarılıyor...</string>
 </resources>

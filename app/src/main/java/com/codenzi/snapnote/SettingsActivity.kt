@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
@@ -14,6 +15,7 @@ import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -39,12 +41,18 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 import javax.inject.Inject
 
 // Data sınıfları aynı kalıyor
@@ -94,7 +102,7 @@ class SettingsActivity : AppCompatActivity() {
         private val gson = Gson()
 
         private var requestedAction: Action? = null
-        enum class Action { BACKUP, RESTORE, DELETE }
+        enum class Action { BACKUP, RESTORE, DELETE, EXPORT_LOCAL, IMPORT_LOCAL }
 
         private var progressDialog: AlertDialog? = null
         private var progressBar: ProgressBar? = null
@@ -111,8 +119,42 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
+        private lateinit var localBackupCreator: ActivityResultLauncher<String>
+        private lateinit var localBackupSelector: ActivityResultLauncher<Array<String>>
+
+        override fun onCreate(savedInstanceState: Bundle?) {
+            super.onCreate(savedInstanceState)
+
+            localBackupCreator = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+                uri?.let {
+                    lifecycleScope.launch {
+                        exportToDevice(it)
+                    }
+                }
+            }
+
+            localBackupSelector = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                uri?.let {
+                    lifecycleScope.launch {
+                        importFromDevice(it)
+                    }
+                }
+            }
+        }
+
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.preferences, rootKey)
+
+            findPreference<Preference>("export_to_phone")?.setOnPreferenceClickListener {
+                val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                localBackupCreator.launch("SnapNote_Backup_$timeStamp.zip")
+                true
+            }
+
+            findPreference<Preference>("import_from_phone")?.setOnPreferenceClickListener {
+                localBackupSelector.launch(arrayOf("application/zip"))
+                true
+            }
 
             findPreference<ListPreference>("theme_selection")?.setOnPreferenceChangeListener { _, newValue ->
                 val mode = when (newValue as String) {
@@ -196,6 +238,272 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
+        private suspend fun exportToDevice(uri: Uri) {
+            withContext(Dispatchers.Main) {
+                showProgressDialog(R.string.action_export_in_progress)
+                progressBar?.isIndeterminate = true
+                progressPercentage?.visibility = View.GONE
+            }
+
+            try {
+                val notesToBackup = noteDao.getAllNotes().first()
+                if (notesToBackup.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        dismissProgressDialog()
+                        Toast.makeText(requireContext(), getString(R.string.no_notes_to_backup), Toast.LENGTH_SHORT).show()
+                    }
+                    return
+                }
+
+                val tempDir = File(requireContext().cacheDir, "backup_temp").apply { mkdirs() }
+                val filesToZip = mutableListOf<File>()
+
+                // Medya dosyalarını geçici dizine kopyala
+                val notesForJson = notesToBackup.map { note ->
+                    val content = gson.fromJson(note.content, NoteContent::class.java)
+                    var newImagePath: String? = null
+                    content.imagePath?.let { path ->
+                        val sourceFile = File(path)
+                        if (sourceFile.exists()) {
+                            val destFile = File(tempDir, sourceFile.name)
+                            sourceFile.copyTo(destFile, overwrite = true)
+                            filesToZip.add(destFile)
+                            newImagePath = sourceFile.name // ZIP içindeki göreceli yol
+                        }
+                    }
+                    var newAudioPath: String? = null
+                    content.audioFilePath?.let { path ->
+                        val sourceFile = File(path)
+                        if (sourceFile.exists()) {
+                            val destFile = File(tempDir, sourceFile.name)
+                            sourceFile.copyTo(destFile, overwrite = true)
+                            filesToZip.add(destFile)
+                            newAudioPath = sourceFile.name // ZIP içindeki göreceli yol
+                        }
+                    }
+                    val newContent = content.copy(imagePath = newImagePath, audioFilePath = newAudioPath)
+                    note.copy(content = gson.toJson(newContent))
+                }
+
+                // JSON dosyasını oluştur
+                val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                val appSettings = AppSettings(
+                    themeSelection = sharedPrefs.getString("theme_selection", "system_default"),
+                    colorSelection = sharedPrefs.getString("color_selection", "bordo"),
+                    widgetBackgroundSelection = sharedPrefs.getString("widget_background_selection", "widget_background")
+                )
+                val passwordHash = PasswordManager.getPasswordHash()
+                val salt = PasswordManager.getSalt()
+
+                val backupData = BackupData(
+                    settings = appSettings,
+                    notes = notesForJson,
+                    passwordHash = passwordHash,
+                    salt = salt
+                )
+                val jsonFile = File(tempDir, "backup.json")
+                jsonFile.writeText(gson.toJson(backupData))
+                filesToZip.add(jsonFile)
+
+                // ZIP dosyasını oluştur
+                requireContext().contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    ZipOutputStream(BufferedOutputStream(outputStream)).use { zipOut ->
+                        filesToZip.forEach { file ->
+                            FileInputStream(file).use { fileIn ->
+                                BufferedInputStream(fileIn).use { bufferedIn ->
+                                    val entry = ZipEntry(file.name)
+                                    zipOut.putNextEntry(entry)
+                                    bufferedIn.copyTo(zipOut, 1024)
+                                    zipOut.closeEntry()
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Geçici dosyaları temizle
+                tempDir.deleteRecursively()
+
+                withContext(Dispatchers.Main) {
+                    dismissProgressDialog()
+                    Toast.makeText(requireContext(), getString(R.string.export_successful), Toast.LENGTH_LONG).show()
+                }
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    dismissProgressDialog()
+                    Toast.makeText(requireContext(), getString(R.string.export_failed) + ": ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
+        private suspend fun importFromDevice(uri: Uri) {
+            val tempDir = File(requireContext().cacheDir, "import_temp").apply { mkdirs() }
+
+            try {
+                // ZIP dosyasını aç
+                requireContext().contentResolver.openInputStream(uri)?.use { inputStream ->
+                    ZipInputStream(BufferedInputStream(inputStream)).use { zipIn ->
+                        var entry: ZipEntry? = zipIn.nextEntry
+                        while (entry != null) {
+                            val outputFile = File(tempDir, entry.name)
+                            FileOutputStream(outputFile).use { fos ->
+                                zipIn.copyTo(fos)
+                            }
+                            entry = zipIn.nextEntry
+                        }
+                    }
+                }
+
+                // JSON dosyasını oku
+                val jsonFile = File(tempDir, "backup.json")
+                if (!jsonFile.exists()) {
+                    throw IOException("backup.json not found in ZIP file.")
+                }
+                val backupData: BackupData = gson.fromJson(jsonFile.readText(), object : TypeToken<BackupData>() {}.type)
+
+                // Şifre kontrolü veya geri yükleme onayı
+                withContext(Dispatchers.Main) {
+                    if (backupData.passwordHash != null && backupData.salt != null) {
+                        showPasswordPromptForLocalRestore(backupData, tempDir)
+                    } else {
+                        showLocalRestoreConfirmationDialog(backupData, tempDir)
+                    }
+                }
+
+            } catch (e: Exception) {
+                tempDir.deleteRecursively()
+                withContext(Dispatchers.Main) {
+                    dismissProgressDialog()
+                    Toast.makeText(requireContext(), getString(R.string.import_failed) + ": ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
+        private fun showLocalRestoreConfirmationDialog(backupData: BackupData, tempDir: File) {
+            AlertDialog.Builder(requireContext())
+                .setTitle(getString(R.string.import_dialog_title))
+                .setMessage(getString(R.string.import_dialog_message))
+                .setPositiveButton(getString(R.string.restore_confirm)) { _, _ ->
+                    lifecycleScope.launch {
+                        proceedWithLocalRestore(backupData, tempDir)
+                    }
+                }
+                .setNegativeButton(getString(R.string.dialog_cancel)) {_,_ ->
+                    tempDir.deleteRecursively()
+                }
+                .show()
+        }
+
+        private fun showPasswordPromptForLocalRestore(backupData: BackupData, tempDir: File) {
+            val editText = EditText(requireContext()).apply {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                hint = getString(R.string.enter_current_password_hint)
+            }
+
+            AlertDialog.Builder(requireContext())
+                .setTitle(getString(R.string.password_required_title))
+                .setMessage(getString(R.string.import_password_protected_message))
+                .setView(editText)
+                .setPositiveButton(getString(R.string.confirm_button)) { _, _ ->
+                    val enteredPassword = editText.text.toString()
+                    if (PasswordManager.checkPassword(enteredPassword, backupData.salt!!, backupData.passwordHash!!)) {
+                        lifecycleScope.launch {
+                            proceedWithLocalRestore(backupData, tempDir)
+                        }
+                    } else {
+                        Toast.makeText(requireContext(), getString(R.string.incorrect_password), Toast.LENGTH_SHORT).show()
+                        tempDir.deleteRecursively()
+                    }
+                }
+                .setNegativeButton(getString(R.string.dialog_cancel)) { _, _ ->
+                    tempDir.deleteRecursively()
+                }
+                .show()
+        }
+
+        private suspend fun proceedWithLocalRestore(backupData: BackupData, tempDir: File) {
+            withContext(Dispatchers.Main) {
+                showProgressDialog(R.string.action_import_in_progress)
+                progressBar?.isIndeterminate = true
+                progressPercentage?.visibility = View.GONE
+            }
+
+            try {
+                // Mevcut verileri temizle
+                noteDao.deleteAllNotes()
+
+                // Medya dosyalarını kalıcı konuma taşı
+                val restoredNotes = backupData.notes.map { note ->
+                    val content = gson.fromJson(note.content, NoteContent::class.java)
+                    var newImagePath: String? = null
+                    content.imagePath?.let { fileName ->
+                        val sourceFile = File(tempDir, fileName)
+                        if (sourceFile.exists()) {
+                            val permanentDir = requireContext().getExternalFilesDir("Images")!!
+                            val permanentFile = File(permanentDir, fileName)
+                            sourceFile.copyTo(permanentFile, overwrite = true)
+                            newImagePath = permanentFile.absolutePath
+                        }
+                    }
+                    var newAudioPath: String? = null
+                    content.audioFilePath?.let { fileName ->
+                        val sourceFile = File(tempDir, fileName)
+                        if(sourceFile.exists()){
+                            val permanentDir = requireContext().getExternalFilesDir("AudioNotes")!!
+                            val permanentFile = File(permanentDir, fileName)
+                            sourceFile.copyTo(permanentFile, overwrite = true)
+                            newAudioPath = permanentFile.absolutePath
+                        }
+                    }
+                    val newContent = content.copy(imagePath = newImagePath, audioFilePath = newAudioPath)
+                    note.copy(content = gson.toJson(newContent))
+                }
+
+                noteDao.insertAll(restoredNotes)
+
+                // Ayarları uygula
+                val prefsEditor = PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
+                prefsEditor.putString("theme_selection", backupData.settings.themeSelection)
+                prefsEditor.putString("color_selection", backupData.settings.colorSelection)
+                prefsEditor.putString("widget_background_selection", backupData.settings.widgetBackgroundSelection)
+                prefsEditor.apply()
+
+                // Şifreyi geri yükle
+                if (backupData.passwordHash != null && backupData.salt != null) {
+                    PasswordManager.resetForRestore(requireContext())
+                    PasswordManager.restorePassword(backupData.passwordHash, backupData.salt)
+                }
+
+                withContext(Dispatchers.Main) {
+                    dismissProgressDialog()
+                    Toast.makeText(requireContext(), getString(R.string.import_successful), Toast.LENGTH_LONG).show()
+                    activity?.recreate()
+                }
+
+            } catch(e: Exception) {
+                withContext(Dispatchers.Main) {
+                    dismissProgressDialog()
+                    Toast.makeText(requireContext(), getString(R.string.import_failed) + ": ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } finally {
+                tempDir.deleteRecursively()
+            }
+        }
+
+        private fun showDriveRestoreConfirmationDialog(googleDriveManager: GoogleDriveManager, backupData: BackupData) {
+            AlertDialog.Builder(requireContext())
+                .setTitle(getString(R.string.restore_dialog_title))
+                .setMessage(getString(R.string.restore_from_drive_dialog_message))
+                .setPositiveButton(getString(R.string.restore_confirm)) { _, _ ->
+                    lifecycleScope.launch {
+                        proceedWithRestore(googleDriveManager, backupData)
+                    }
+                }
+                .setNegativeButton(getString(R.string.dialog_cancel), null)
+                .show()
+        }
+
         private fun showDeleteAccountConfirmationDialog() {
             AlertDialog.Builder(requireContext())
                 .setTitle(R.string.delete_account_title)
@@ -255,7 +563,7 @@ class SettingsActivity : AppCompatActivity() {
                     Action.BACKUP -> backupNotes(googleDriveManager)
                     Action.RESTORE -> restoreNotes(googleDriveManager)
                     Action.DELETE -> performAccountDeletion(googleDriveManager)
-                    null -> {}
+                    else -> {}
                 }
             } catch (e: ApiException) {
                 Log.w("SettingsFragment", "signInResult:failed code=" + e.statusCode, e)
@@ -498,7 +806,6 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
-        // *** YENİ DÜZENLENMİŞ FONKSİYON ***
         private fun restoreNotes(googleDriveManager: GoogleDriveManager) {
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
@@ -527,7 +834,6 @@ class SettingsActivity : AppCompatActivity() {
                     val type = object : TypeToken<BackupData>() {}.type
                     val backupData: BackupData = gson.fromJson(jsonContent, type)
 
-                    // YEDEĞİN İÇİ BOŞ MU KONTROL ET
                     if (backupData.notes.isEmpty()) {
                         withContext(Dispatchers.Main) {
                             dismissProgressDialog()
@@ -536,13 +842,12 @@ class SettingsActivity : AppCompatActivity() {
                         return@launch
                     }
 
-                    // İçi doluysa normal işleme devam et
                     withContext(Dispatchers.Main) {
                         dismissProgressDialog()
                         if (backupData.passwordHash != null && backupData.salt != null) {
                             showPasswordPromptForRestore(googleDriveManager, backupData)
                         } else {
-                            showRestoreConfirmationDialog(googleDriveManager, backupData)
+                            showDriveRestoreConfirmationDialog(googleDriveManager, backupData)
                         }
                     }
 
@@ -553,19 +858,6 @@ class SettingsActivity : AppCompatActivity() {
                     showError(getString(R.string.restore_failed), e)
                 }
             }
-        }
-
-        private fun showRestoreConfirmationDialog(googleDriveManager: GoogleDriveManager, backupData: BackupData) {
-            AlertDialog.Builder(requireContext())
-                .setTitle(getString(R.string.restore_dialog_title))
-                .setMessage(getString(R.string.restore_dialog_message))
-                .setPositiveButton(getString(R.string.restore_confirm)) { _, _ ->
-                    lifecycleScope.launch(Dispatchers.IO) {
-                        proceedWithRestore(googleDriveManager, backupData)
-                    }
-                }
-                .setNegativeButton(getString(R.string.dialog_cancel), null)
-                .show()
         }
 
         private fun showPasswordPromptForRestore(googleDriveManager: GoogleDriveManager, backupData: BackupData) {
