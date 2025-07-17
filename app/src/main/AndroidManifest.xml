@@ -59,6 +59,11 @@
         <activity
             android:name=".PasswordSettingsActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".ForgotPasswordActivity"
+            android:exported="false" />
+
         <activity
             android:name=".CameraNoteActivity"
             android:exported="false"

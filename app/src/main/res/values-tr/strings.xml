@@ -170,10 +170,10 @@
     <string name="restore_from_drive_title">Drive\'dan Geri Yükle</string>
     <string name="restore_from_drive_summary">Daha önce yedeklediğiniz notları geri yükler.</string>
     <string name="delete_account_title">Hesabı Sil</string>
-    <string name="delete_account_summary">Hesabınızı ve tüm verilerinizi kalıcı olarak silin.</string>
+    <string name="delete_account_summary">Hesabınızı ve tüm verilerinizi kalıcı olarak siler.</string>
     <string name="delete_account_confirmation_message">Hesabınızı kalıcı olarak silmek istediğinizden emin misiniz? Notlar ve ayarlar dahil tüm verileriniz silinecektir. Bu işlem geri alınamaz.</string>
     <string name="other_settings_category_title">Diğer Ayarlar</string>
-    <string name="trash_bin_summary">Silinen notları görüntüleyin ve yönetin</string>
+    <string name="trash_bin_summary">Silinen notları görüntüleyin ve yönetin.</string>
     <string name="privacy_policy_title">Gizlilik Politikası</string>
     <string name="privacy_policy_summary">Uygulamanın gizlilik politikasını okuyun.</string>
     <string name="contact_us_title">Bize Ulaşın</string>
@@ -184,7 +184,7 @@
 
     <string name="application_encryption_category_title">Uygulama Şifrelemesi</string>
     <string name="password_settings_title">Şifre Ayarları</string>
-    <string name="password_settings_summary">Uygulamayı bir şifre ile kilitleyin</string>
+    <string name="password_settings_summary">Uygulamayı bir şifre ile kilitleyin.</string>
     <string name="set_password_title">Şifre Belirle</string>
     <string name="enter_new_password_hint">Yeni şifreyi girin</string>
     <string name="confirm_new_password_hint">Yeni şifreyi onaylayın</string>
@@ -272,4 +272,26 @@
     <string name="import_password_protected_message">Bu yedekleme dosyası şifre korumalıdır. Devam etmek için lütfen şifrenizi girin.</string>
     <string name="action_export_in_progress">Dışa Aktarılıyor...</string>
     <string name="action_import_in_progress">İçe Aktarılıyor...</string>
+
+    <string name="term_of_use_title">Kullanım Koşulları</string>
+    <string name="term_of_use_summary">Uygulamanın kullanım koşullarını okuyun.</string>
+
+    <string name="forgot_password">Şifremi Unuttum</string>
+    <string name="security_question_title">Şifre Kurtarma</string>
+    <string name="security_question_prompt">Lütfen şifrenizi sıfırlamak için güvenlik sorunuzu yanıtlayın.</string>
+    <string name="hint_security_answer">Cevabınız</string>
+    <string name="submit_button">Gönder</string>
+    <string name="password_reset_success">Şifreniz başarıyla sıfırlandı.</string>
+    <string name="incorrect_security_answer">Güvenlik sorusunun cevabı yanlış.</string>
+    <string name="setup_security_question">Güvenlik Sorusu Belirle</string>
+    <string name="hint_security_question">Güvenlik Sorusu (örn: İlk evcil hayvanınızın adı?)</string>
+    <string name="password_and_security_question_set_success">Şifre ve güvenlik sorusu başarıyla ayarlandı.</string>
+    <string name="security_question_needed_error">Lütfen bir güvenlik sorusu ve cevabı belirleyin.</string>
+
+    <string name="restore_auth_title">Yedekleme Korumalı</string>
+    <string name="restore_auth_choice_know_password">Şifremi Biliyorum</string>
+    <string name="restore_auth_choice_forgot_password">Şifremi Unuttum</string>
+
+    <string name="reset_password_title">Yeni Şifre Belirle</string>
+
 </resources>

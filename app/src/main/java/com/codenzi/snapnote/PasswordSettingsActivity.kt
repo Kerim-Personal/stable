@@ -81,6 +81,10 @@ class PasswordSettingsActivity : AppCompatActivity() {
         if (PasswordManager.isPasswordSet()) {
             binding.tilCurrentPassword.visibility = View.VISIBLE
             binding.btnDisablePassword.visibility = View.VISIBLE
+            // Mevcut güvenlik sorusunu göster
+            binding.etSecurityQuestion.setText(PasswordManager.getSecurityQuestion())
+            // Cevap alanı her zaman boş ve placeholder ile gösterilmeli
+            binding.etSecurityAnswer.hint = "Değiştirmek için yeni cevabı girin"
         } else {
             binding.tilCurrentPassword.visibility = View.GONE
             binding.btnDisablePassword.visibility = View.GONE
@@ -91,6 +95,8 @@ class PasswordSettingsActivity : AppCompatActivity() {
         val currentPassword = binding.etCurrentPassword.text.toString()
         val newPassword = binding.etNewPassword.text.toString()
         val confirmPassword = binding.etConfirmPassword.text.toString()
+        val securityQuestion = binding.etSecurityQuestion.text.toString().trim()
+        val securityAnswer = binding.etSecurityAnswer.text.toString().trim()
 
         if (PasswordManager.isPasswordSet() && !PasswordManager.checkPassword(currentPassword)) {
             Toast.makeText(this, R.string.current_password_incorrect_error, Toast.LENGTH_SHORT).show()
@@ -108,9 +114,13 @@ class PasswordSettingsActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.password_mismatch_error, Toast.LENGTH_SHORT).show()
             return
         }
+        if (securityQuestion.isBlank() || securityAnswer.isBlank()) {
+            Toast.makeText(this, getString(R.string.security_question_needed_error), Toast.LENGTH_SHORT).show()
+            return
+        }
 
-        PasswordManager.setPassword(newPassword)
-        Toast.makeText(this, "Parola ayarlandı. Otomatik yedekleme başlatılıyor...", Toast.LENGTH_SHORT).show()
+        PasswordManager.setPasswordAndSecurityQuestion(newPassword, securityQuestion, securityAnswer)
+        Toast.makeText(this, getString(R.string.password_and_security_question_set_success), Toast.LENGTH_SHORT).show()
         triggerAutomaticBackup()
     }
 
@@ -153,7 +163,6 @@ class PasswordSettingsActivity : AppCompatActivity() {
         }
     }
 
-    @Suppress("DEPRECATION")
     private fun handleSignInResult(data: Intent?) {
         try {
             val task = GoogleSignIn.getSignedInAccountFromIntent(data)
@@ -225,8 +234,12 @@ class PasswordSettingsActivity : AppCompatActivity() {
                 widgetBackgroundSelection = sharedPrefs.getString("widget_background_selection", "widget_background")
             )
 
+            // Tüm güvenlik verileri alınıyor
             val passwordHash = PasswordManager.getPasswordHash()
             val salt = PasswordManager.getSalt()
+            val securityQuestion = PasswordManager.getSecurityQuestion()
+            val securityAnswerHash = PasswordManager.getSecurityAnswerHash()
+            val securitySalt = PasswordManager.getSecuritySalt()
 
             val notesForBackup = mutableListOf<Note>()
             val totalSteps = notesToBackup.size + 1
@@ -257,11 +270,15 @@ class PasswordSettingsActivity : AppCompatActivity() {
                 }
             }
 
+            // BackupData oluşturulurken yeni alanlar ekleniyor
             val backupData = BackupData(
                 settings = appSettings,
                 notes = notesForBackup,
                 passwordHash = passwordHash,
-                salt = salt
+                salt = salt,
+                securityQuestion = securityQuestion,
+                securityAnswerHash = securityAnswerHash,
+                securitySalt = securitySalt
             )
             val backupJson = gson.toJson(backupData)
 

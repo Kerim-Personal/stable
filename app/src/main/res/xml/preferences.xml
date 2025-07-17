@@ -94,6 +94,12 @@
             app:icon="@drawable/ic_privacy" />
 
         <Preference
+            android:key="term_of_use"
+            android:summary="@string/term_of_use_summary"
+            android:title="@string/term_of_use_title"
+            app:icon="@drawable/term_of_use" />
+
+        <Preference
             android:key="contact_us"
             android:summary="@string/contact_us_summary"
             android:title="@string/contact_us_title"

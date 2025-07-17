@@ -24,8 +24,6 @@ class PasswordCheckActivity : AppCompatActivity() {
         applySavedTheme()
         super.onCreate(savedInstanceState)
 
-        // DÜZELTME: 'this' parametresi kaldırıldı. PasswordManager artık uygulama
-        // genelinde tek bir yerden yönetiliyor.
         if (!PasswordManager.isPasswordSet()) {
             navigateToMain()
             return
@@ -38,6 +36,12 @@ class PasswordCheckActivity : AppCompatActivity() {
             checkPasswordAndUnlock()
         }
 
+        // YENİ: Şifremi Unuttum butonu için listener
+        binding.btnForgotPassword.setOnClickListener {
+            val intent = Intent(this, ForgotPasswordActivity::class.java)
+            startActivity(intent)
+        }
+
         binding.etUnlockPassword.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 checkPasswordAndUnlock()
@@ -46,7 +50,6 @@ class PasswordCheckActivity : AppCompatActivity() {
             return@setOnEditorActionListener false
         }
 
-        // Geri tuşuna basıldığında uygulamanın tamamen kapanmasını sağlar.
         val callback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 finishAffinity()
@@ -70,7 +73,6 @@ class PasswordCheckActivity : AppCompatActivity() {
         hideKeyboard()
         val enteredPassword = binding.etUnlockPassword.text.toString()
 
-        // DÜZELTME: 'this' parametresi kaldırıldı.
         if (PasswordManager.checkPassword(enteredPassword)) {
             navigateToMain()
         } else {

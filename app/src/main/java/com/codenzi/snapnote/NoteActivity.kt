@@ -282,7 +282,6 @@ class NoteActivity : AppCompatActivity() {
     }
 
     private fun performSave() {
-        // Not tamamen boşsa kaydetme ve uyarı göster
         val titleText = binding.etNoteTitle.text.toString().trim()
         val noteContentText = binding.etNoteInput.text
         val isContentEmpty = titleText.isBlank() &&
@@ -290,8 +289,8 @@ class NoteActivity : AppCompatActivity() {
                 checklistItems.all { it.text.isBlank() } &&
                 imagePath == null && audioPath == null
 
-        if (isContentEmpty) {
-            Toast.makeText(this, R.string.toast_empty_note, Toast.LENGTH_SHORT).show()
+        if (currentNoteId == null && isContentEmpty) {
+            finish()
             return
         }
 
