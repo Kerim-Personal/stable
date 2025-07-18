@@ -31,7 +31,6 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.toColorInt
 import androidx.lifecycle.lifecycleScope
@@ -77,23 +76,24 @@ class NoteActivity : AppCompatActivity() {
     private var utteranceStartPosition = 0
     private val restartHandler = Handler(Looper.getMainLooper())
 
-    // Dosya yolları ve URI'ler
-    private var audioPath: String? = null
-    private var imagePath: String? = null // Hem geçici hem kalıcı yolu tutacak
-    private var tempPhotoUri: Uri? = null // Yalnızca kameranın kullanacağı geçici URI
+    // --- GÜNCELLENMİŞ DOSYA YÖNETİMİ (URI TABANLI) ---
+    // Artık mutlak dosya yolu (String) yerine güvenli URI (Uri) kullanıyoruz.
+    private var audioPath: String? = null // Ses dosyaları için path kullanımı şimdilik kalabilir.
+    private var imageUri: Uri? = null      // Resimler için ana değişkenimiz bu olacak.
+    private var tempPhotoUri: Uri? = null  // Kameradan gelen geçici resmi tutmak için.
 
     private var isFromWidget = false
 
-    // --- DEĞİŞİKLİK KONTROLÜ İÇİN EKLENEN KOD BAŞLANGICI ---
+    // Değişiklik kontrolü için kullanılan veri sınıfı.
     private data class NoteState(
         val title: String,
         val contentHtml: String,
         val checklist: List<ChecklistItem>,
         val color: String,
-        val imagePath: String?,
+        val imageUriString: String?,
         val audioPath: String?
     ) {
-        // Kontrol listesinin doğru karşılaştırılması için equals metodunu override ediyoruz.
+        // equals ve hashCode metodları, içeriğin gerçekten değişip değişmediğini doğru anlamak için override edildi.
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
             if (javaClass != other?.javaClass) return false
@@ -101,26 +101,21 @@ class NoteActivity : AppCompatActivity() {
             return title == other.title &&
                     contentHtml == other.contentHtml &&
                     color == other.color &&
-                    imagePath == other.imagePath &&
+                    imageUriString == other.imageUriString &&
                     audioPath == other.audioPath &&
                     checklist.size == other.checklist.size &&
                     checklist.indices.all { i -> checklist[i] == other.checklist[i] }
         }
-
-        override fun hashCode(): Int {
-            return Objects.hash(title, contentHtml, checklist, color, imagePath, audioPath)
-        }
+        override fun hashCode(): Int = Objects.hash(title, contentHtml, checklist, color, imageUriString, audioPath)
     }
-
     private var initialNoteState: NoteState? = null
-    // --- DEĞİŞİKLİK KONTROLÜ İÇİN EKLENEN KOD SONU ---
-
 
     companion object {
-        private const val KEY_TEMP_PHOTO_PATH = "KEY_TEMP_PHOTO_PATH"
+        // Ekran döndürme gibi durumlarda geçici URI'nin kaybolmaması için anahtar.
+        private const val KEY_TEMP_PHOTO_URI = "KEY_TEMP_PHOTO_URI"
     }
 
-    // İzin ve Aktivite Sonuçları için Launcher'lar
+    // İzin ve Aktivite Sonuçları için modern launcher'lar.
     private val requestCameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) takePicture() else Toast.makeText(this, "Kamera izni gerekli.", Toast.LENGTH_SHORT).show()
     }
@@ -128,44 +123,40 @@ class NoteActivity : AppCompatActivity() {
         if (isGranted) startRecording() else Toast.makeText(this, "Mikrofon izni gerekli.", Toast.LENGTH_SHORT).show()
     }
     private val requestVoiceToTextPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
-        if (isGranted) {
-            toggleSpeechToText()
-        } else {
-            Toast.makeText(this, getString(R.string.microphone_permission_needed), Toast.LENGTH_SHORT).show()
-        }
+        if (isGranted) toggleSpeechToText() else Toast.makeText(this, getString(R.string.microphone_permission_needed), Toast.LENGTH_SHORT).show()
     }
 
+    // Kamera aktivitesinden sonuç döndüğünde tetiklenir.
     private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         val capturedUri = tempPhotoUri
         if (success && capturedUri != null) {
+            imageUri = capturedUri // Yakalanan geçici URI'yi ana URI değişkenimize atıyoruz.
             binding.ivImagePreview.visibility = View.VISIBLE
-            binding.ivImagePreview.load(capturedUri)
+            binding.ivImagePreview.load(imageUri) // Coil kütüphanesi ile URI'yi yüklüyoruz.
 
             if (binding.etNoteTitle.text!!.isBlank()) {
                 val titleWithTimestamp = "${getString(R.string.photo_note_title)} - ${formatDate(System.currentTimeMillis(), "dd/MM/yyyy HH:mm")}"
                 binding.etNoteTitle.setText(titleWithTimestamp)
             }
         } else {
-            imagePath = null
+            // İşlem başarısızsa veya kullanıcı iptal ederse, URI'leri temizliyoruz.
+            imageUri = null
             tempPhotoUri = null
         }
     }
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
 
-        if (savedInstanceState != null) {
-            savedInstanceState.getString(KEY_TEMP_PHOTO_PATH)?.let { path ->
-                imagePath = path
-                tempPhotoUri = FileProvider.getUriForFile(this, "${packageName}.provider", File(path))
-            }
+        // Eğer uygulama yeniden oluşturulduysa (örn. ekran döndürme), geçici URI'yi geri yüklüyoruz.
+        savedInstanceState?.getString(KEY_TEMP_PHOTO_URI)?.let { uriString ->
+            tempPhotoUri = Uri.parse(uriString)
+            imageUri = tempPhotoUri
         }
 
         binding = ActivityNoteBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
         binding.root.setBackgroundColor(getColorFromAttr(com.google.android.material.R.attr.colorSurface))
 
         setupListeners()
@@ -183,11 +174,10 @@ class NoteActivity : AppCompatActivity() {
         })
     }
 
+    // Ekran döndürme gibi durumlarda geçici veriyi kaydetmek için.
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        if (imagePath != null && imagePath!!.contains(ImageManager.TEMP_IMAGE_PREFIX)) {
-            outState.putString(KEY_TEMP_PHOTO_PATH, imagePath)
-        }
+        tempPhotoUri?.let { outState.putString(KEY_TEMP_PHOTO_URI, it.toString()) }
     }
 
     private fun getColorFromAttr(attrResId: Int): Int {
@@ -199,36 +189,23 @@ class NoteActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         releaseMediaPlayer()
-        if (isRecording) {
-            stopRecording()
-        }
-        if (isListening) {
-            stopListening()
-        }
+        if (isRecording) stopRecording()
+        if (isListening) stopListening()
     }
 
     private fun observeViewModel() {
-        lifecycleScope.launch {
-            viewModel.note.collectLatest { note ->
-                note?.let { displayNote(it) }
+        lifecycleScope.launch { viewModel.note.collectLatest { note -> note?.let { displayNote(it) } } }
+        lifecycleScope.launch { viewModel.isFinished.collectLatest { if (it) finish() } }
+        lifecycleScope.launch { viewModel.noteMovedToTrash.collectLatest { moved ->
+            if (moved) {
+                updateAllWidgets()
+                Toast.makeText(applicationContext, R.string.note_moved_to_trash_toast, Toast.LENGTH_SHORT).show()
+                finish()
             }
-        }
-        lifecycleScope.launch {
-            viewModel.isFinished.collectLatest { finished ->
-                if (finished) finish()
-            }
-        }
-        lifecycleScope.launch {
-            viewModel.noteMovedToTrash.collectLatest { moved ->
-                if (moved) {
-                    updateAllWidgets()
-                    Toast.makeText(applicationContext, R.string.note_moved_to_trash_toast, Toast.LENGTH_SHORT).show()
-                    finish()
-                }
-            }
-        }
+        }}
     }
 
+    // Tüm UI elemanları için listener'ların ayarlandığı merkezi fonksiyon.
     private fun setupListeners() {
         binding.btnShowHistory.setOnClickListener {
             AlertDialog.Builder(this)
@@ -246,16 +223,15 @@ class NoteActivity : AppCompatActivity() {
             updateFormattingButtonsState()
         }
 
-        binding.btnSaveNote.setOnClickListener {
-            performSave()
-        }
-
+        binding.btnSaveNote.setOnClickListener { performSave() }
         binding.btnDeleteNote.setOnClickListener { showDeleteConfirmationDialog() }
         binding.btnPlayPause.setOnClickListener { togglePlayback() }
+
         binding.ivImagePreview.setOnClickListener {
-            imagePath?.let { path ->
+            imageUri?.let { uri ->
                 val intent = Intent(this, PhotoViewActivity::class.java).apply {
-                    putExtra("IMAGE_URI", path)
+                    // PhotoViewActivity'e dosya yolu yerine URI'yi string olarak gönderiyoruz.
+                    putExtra("IMAGE_URI", uri.toString())
                 }
                 startActivity(intent)
             }
@@ -266,37 +242,36 @@ class NoteActivity : AppCompatActivity() {
         binding.btnVoiceNote.setOnClickListener { toggleSpeechToText() }
     }
 
-    // --- DEĞİŞİKLİK KONTROLÜ İÇİN YENİ FONKSİYON ---
+    // Notta değişiklik yapılıp yapılmadığını kontrol eden fonksiyon.
     private fun isNoteModified(): Boolean {
-        if (initialNoteState == null) return true // Eğer başlangıç durumu yoksa, her zaman değiştirilmiş kabul et.
-
+        if (initialNoteState == null) return true // Yeni not ise her zaman değiştirilmiş sayılır.
         val currentState = NoteState(
             title = binding.etNoteTitle.text.toString(),
             contentHtml = Html.toHtml(binding.etNoteInput.text, Html.TO_HTML_PARAGRAPH_LINES_CONSECUTIVE),
             checklist = checklistAdapter.items,
             color = selectedColor,
-            imagePath = this.imagePath,
+            imageUriString = this.imageUri?.toString(),
             audioPath = this.audioPath
         )
+        // Mevcut durum ile başlangıç durumunu karşılaştırıyoruz.
         return currentState != initialNoteState
     }
 
+    // Notu kaydetme işlemini yürüten ana fonksiyon.
     private fun performSave() {
         val titleText = binding.etNoteTitle.text.toString().trim()
         val noteContentText = binding.etNoteInput.text
-        val isContentEmpty = titleText.isBlank() &&
-                noteContentText.isNullOrBlank() &&
-                checklistItems.all { it.text.isBlank() } &&
-                imagePath == null && audioPath == null
+        val isContentEmpty = titleText.isBlank() && noteContentText.isNullOrBlank() && checklistItems.all { it.text.isBlank() } && imageUri == null && audioPath == null
 
+        // Yeni ve boş bir not kaydedilmeye çalışılıyorsa, işlemi iptal edip çık.
         if (currentNoteId == null && isContentEmpty) {
             finish()
             return
         }
 
-        // --- DEĞİŞİKLİK KONTROLÜ ---
+        // Eğer notta hiçbir değişiklik yapılmadıysa, kaydetme işlemi yapmadan çık.
         if (!isNoteModified()) {
-            finish() // Değişiklik yoksa kaydetmeden çık.
+            finish()
             return
         }
 
@@ -304,15 +279,19 @@ class NoteActivity : AppCompatActivity() {
 
         val noteTextHtml = if (noteContentText != null && !noteContentText.toString().isBlank()) {
             Html.toHtml(noteContentText, Html.TO_HTML_PARAGRAPH_LINES_CONSECUTIVE)
-        } else {
-            ""
-        }
+        } else ""
 
-        var permanentImagePath: String? = imagePath
-        if (imagePath != null && imagePath!!.contains(ImageManager.TEMP_IMAGE_PREFIX)) {
-            permanentImagePath = ImageManager.makeImagePermanent(this, imagePath!!)
-            if (permanentImagePath == null) {
-                Toast.makeText(this, "Resim kaydedilirken bir hata oluştu.", Toast.LENGTH_SHORT).show()
+        var permanentImageUriString: String? = null
+        imageUri?.let { uri ->
+            // Eğer URI, kameradan yeni çekilmiş geçici bir dosyaya aitse, onu kalıcı hale getiriyoruz.
+            if (uri.toString().contains(ImageManager.TEMP_IMAGE_PREFIX)) {
+                permanentImageUriString = ImageManager.makeImagePermanent(this, uri)?.toString()
+                if(permanentImageUriString == null){
+                    Toast.makeText(this, "Resim kaydedilirken bir hata oluştu.", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                // Eğer URI zaten kalıcı bir dosyaya aitse (veritabanından geldiyse), ona dokunmuyoruz.
+                permanentImageUriString = uri.toString()
             }
         }
 
@@ -323,20 +302,20 @@ class NoteActivity : AppCompatActivity() {
             checklistItems = checklistItems,
             color = selectedColor,
             audioPath = audioPath,
-            imagePath = permanentImagePath,
+            imagePath = permanentImageUriString, // Veritabanına URI'yi string olarak kaydediyoruz.
             isFromWidget = isFromWidget
         )
         updateAllWidgets()
     }
 
+    // Kamera ile resim çekme sürecini başlatan fonksiyon.
     private fun takePicture() {
-        if (imagePath != null && File(imagePath!!).exists()) {
+        // Eğer zaten bir resim varsa, kullanıcıya üzerine yazmak isteyip istemediğini soruyoruz.
+        if (imageUri != null) {
             AlertDialog.Builder(this)
                 .setTitle(getString(R.string.overwrite_photo_title))
                 .setMessage(getString(R.string.overwrite_photo_message))
-                .setPositiveButton(getString(R.string.dialog_yes)) { _, _ ->
-                    proceedWithTakePicture()
-                }
+                .setPositiveButton(getString(R.string.dialog_yes)) { _, _ -> proceedWithTakePicture() }
                 .setNegativeButton(getString(R.string.dialog_no), null)
                 .show()
         } else {
@@ -346,14 +325,252 @@ class NoteActivity : AppCompatActivity() {
 
     private fun proceedWithTakePicture() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            val (tempFile, tempUri) = ImageManager.createTempImageFile(this)
-            this.imagePath = tempFile.absolutePath
+            // ImageManager'dan geçici bir URI alıp kamera launcher'ını başlatıyoruz.
+            val tempUri = ImageManager.createTempImageUri(this)
             this.tempPhotoUri = tempUri
             takePictureLauncher.launch(tempUri)
         } else {
             requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
+
+    // Veritabanından gelen notu ekranda görüntüleyen fonksiyon.
+    private fun displayNote(note: Note?) {
+        if (note == null) {
+            binding.etNoteTitle.text?.clear()
+            binding.etNoteInput.text?.clear()
+            displayEditHistory(null)
+            val oldSize = checklistItems.size
+            checklistItems.clear()
+            if(oldSize > 0) checklistAdapter.notifyItemRangeRemoved(0, oldSize)
+            binding.llAudioPlayer.visibility = View.GONE
+            audioPath = null
+            binding.ivImagePreview.visibility = View.GONE
+            imageUri = null
+            selectedColor = "#FFECEFF1"
+            updateColorSelection(binding.colorDefault)
+            updateWindowBackground()
+            initialNoteState = NoteState(title = "", contentHtml = "", checklist = emptyList(), color = selectedColor, imageUriString = null, audioPath = null)
+            return
+        }
+
+        binding.etNoteTitle.setText(note.title)
+        displayEditHistory(note)
+        try {
+            val content = gson.fromJson(note.content, NoteContent::class.java)
+            binding.etNoteInput.setText(Html.fromHtml(content.text, Html.FROM_HTML_MODE_LEGACY))
+
+            val oldSize = checklistItems.size
+            checklistItems.clear()
+            if (oldSize > 0) checklistAdapter.notifyItemRangeRemoved(0, oldSize)
+            checklistItems.addAll(content.checklist)
+            if(checklistItems.isNotEmpty()) checklistAdapter.notifyItemRangeInserted(0, checklistItems.size)
+
+            if (content.audioFilePath != null) {
+                audioPath = content.audioFilePath
+                binding.llAudioPlayer.visibility = View.VISIBLE
+                binding.tvAudioTitle.text = note.title.ifBlank { getString(R.string.voice_recording_title) }
+                prepareMediaPlayer()
+            } else {
+                binding.llAudioPlayer.visibility = View.GONE
+                audioPath = null
+            }
+
+            // Geriye dönük uyumluluk: Hem eski dosya yolları hem de yeni URI'ler burada çalışır.
+            if (content.imagePath != null) {
+                this.imageUri = Uri.parse(content.imagePath) // String'i URI'ye çeviriyoruz.
+                binding.ivImagePreview.visibility = View.VISIBLE
+                // Coil, hem "file://" hem de "content://" URI'lerini anlar.
+                binding.ivImagePreview.load(this.imageUri) {
+                    crossfade(true)
+                    placeholder(R.drawable.ic_image_24)
+                    error(R.drawable.ic_image_24)
+                }
+            } else {
+                this.imageUri = null
+                binding.ivImagePreview.visibility = View.GONE
+            }
+
+            initialNoteState = NoteState(
+                title = note.title,
+                contentHtml = content.text,
+                checklist = content.checklist.map { it.copy() },
+                color = note.color,
+                imageUriString = content.imagePath,
+                audioPath = content.audioFilePath
+            )
+
+        } catch (_: JsonSyntaxException) {
+            // Eski formatlı, sadece metin içeren notlar için hata yönetimi.
+            binding.etNoteInput.setText(Html.fromHtml(note.content, Html.FROM_HTML_MODE_LEGACY))
+            val oldSize = checklistItems.size
+            checklistItems.clear()
+            if (oldSize > 0) checklistAdapter.notifyItemRangeRemoved(0, oldSize)
+            binding.llAudioPlayer.visibility = View.GONE
+            audioPath = null
+            binding.ivImagePreview.visibility = View.GONE
+            this.imageUri = null
+            initialNoteState = NoteState(title = note.title, contentHtml = note.content, checklist = emptyList(), color = note.color, imageUriString = null, audioPath = null)
+        }
+
+        selectedColor = note.color
+        updateWindowBackground()
+        val colorInt = try { note.color.toColorInt() } catch (_: Exception) { Color.WHITE }
+        val viewToSelect = colorPickers.getOrNull(
+            when (colorInt) {
+                ContextCompat.getColor(this@NoteActivity, R.color.note_color_yellow) -> 1
+                ContextCompat.getColor(this@NoteActivity, R.color.note_color_blue) -> 2
+                ContextCompat.getColor(this@NoteActivity, R.color.note_color_green) -> 3
+                ContextCompat.getColor(this@NoteActivity, R.color.note_color_pink) -> 4
+                ContextCompat.getColor(this@NoteActivity, R.color.note_color_purple) -> 5
+                ContextCompat.getColor(this@NoteActivity, R.color.note_color_orange) -> 6
+                else -> 0
+            }
+        )
+        updateColorSelection(viewToSelect)
+        updateFormattingButtonsState()
+    }
+
+    private fun showDeleteConfirmationDialog() {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.delete_note_confirmation_title))
+            .setMessage(getString(R.string.delete_note_to_trash_confirmation_message))
+            .setPositiveButton(getString(R.string.dialog_move_to_trash)) { _, _ -> viewModel.moveNoteToTrash(currentNoteId) }
+            .setNegativeButton(getString(R.string.dialog_cancel), null)
+            .show()
+    }
+
+    // Geri kalan tüm diğer metodlar (ses kaydı, metin formatlama, checklist vb.)
+    // bu URI değişikliğinden etkilenmeden aynı şekilde çalışır.
+    // Metodların geri kalanını eksiksiz olarak ekliyorum:
+
+    override fun onDestroy() {
+        super.onDestroy()
+        restartHandler.removeCallbacksAndMessages(null)
+        if(::speechRecognizer.isInitialized) {
+            speechRecognizer.destroy()
+        }
+        releaseMediaPlayer()
+        if (isRecording) {
+            stopRecording()
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        processIntent(intent)
+    }
+
+    private fun processIntent(intent: Intent) {
+        isFromWidget = intent.getBooleanExtra("FROM_WIDGET", false)
+        currentNoteId = intent.getIntExtra("NOTE_ID", 0).takeIf { it != 0 }
+
+        if (currentNoteId != null) {
+            binding.btnDeleteNote.visibility = View.VISIBLE
+            viewModel.loadNote(currentNoteId!!)
+        } else {
+            currentNoteId = null
+            binding.btnDeleteNote.visibility = View.GONE
+            displayNote(null)
+        }
+        binding.btnShowHistory.visibility = if (currentNoteId != null) View.VISIBLE else View.GONE
+    }
+
+    private fun setupChecklist() {
+        checklistAdapter = ChecklistItemAdapter(checklistItems)
+        binding.rvChecklist.adapter = checklistAdapter
+        binding.rvChecklist.layoutManager = LinearLayoutManager(this)
+        binding.btnAddChecklistItem.setOnClickListener { checklistAdapter.addItem() }
+    }
+
+    private fun setupColorPickers() {
+        colorPickers = listOf(
+            binding.colorDefault, binding.colorYellow, binding.colorBlue,
+            binding.colorGreen, binding.colorPink, binding.colorPurple, binding.colorOrange
+        )
+        val listeners = mapOf(
+            binding.colorDefault to R.color.note_color_default,
+            binding.colorYellow to R.color.note_color_yellow,
+            binding.colorBlue to R.color.note_color_blue,
+            binding.colorGreen to R.color.note_color_green,
+            binding.colorPink to R.color.note_color_pink,
+            binding.colorPurple to R.color.note_color_purple,
+            binding.colorOrange to R.color.note_color_orange
+        )
+        listeners.forEach { (view, colorResId) -> view.setOnClickListener { onColorSelected(it, colorResId) } }
+    }
+
+    private fun onColorSelected(view: View, colorResId: Int) {
+        selectedColor = String.format("#%08X", ContextCompat.getColor(this, colorResId))
+        updateColorSelection(view)
+        updateWindowBackground()
+    }
+
+    private fun updateColorSelection(selectedView: View?) {
+        colorPickers.forEach { it.isSelected = (it == selectedView) }
+    }
+
+    private fun getContrastingTextColor(backgroundColor: String): Int {
+        return try {
+            val colorInt = backgroundColor.toColorInt()
+            if ((0.299 * Color.red(colorInt) + 0.587 * Color.green(colorInt) + 0.114 * Color.blue(colorInt)) / 255 > 0.5)
+                ContextCompat.getColor(this, R.color.black)
+            else
+                ContextCompat.getColor(this, R.color.white)
+        } catch (_: IllegalArgumentException) {
+            ContextCompat.getColor(this, R.color.black)
+        }
+    }
+
+    private fun updateWindowBackground() {
+        try {
+            val color = selectedColor.toColorInt()
+            window.setBackgroundDrawable(color.toDrawable())
+            binding.root.setBackgroundColor(color)
+        } catch (_: IllegalArgumentException) {
+            val defaultColor = Color.WHITE
+            window.setBackgroundDrawable(defaultColor.toDrawable())
+            binding.root.setBackgroundColor(defaultColor)
+        }
+        val textColor = getContrastingTextColor(selectedColor)
+        checklistAdapter.updateColors(textColor, textColor)
+        if (checklistAdapter.itemCount > 0) {
+            checklistAdapter.notifyItemRangeChanged(0, checklistAdapter.itemCount)
+        }
+        binding.etNoteTitle.setTextColor(textColor)
+        binding.etNoteInput.setTextColor(textColor)
+    }
+
+    private fun updateAllWidgets() {
+        val appWidgetManager = AppWidgetManager.getInstance(this)
+        val componentName = ComponentName(this, NoteWidgetProvider::class.java)
+        appWidgetManager.getAppWidgetIds(componentName).forEach { appWidgetId ->
+            NoteWidgetProvider.updateAppWidget(this, appWidgetManager, appWidgetId)
+        }
+    }
+
+    private fun displayEditHistory(note: Note?) {
+        if (note == null) {
+            binding.tvEditHistory.text = ""
+            return
+        }
+        val historyBuilder = StringBuilder(getString(R.string.creation_date_label, formatDate(note.createdAt, "dd/MM/yyyy HH:mm:ss")))
+        if (note.modifiedAt.isNotEmpty()) {
+            historyBuilder.append("\n\n${getString(R.string.edit_history_title)}")
+            note.modifiedAt.forEach { timestamp ->
+                historyBuilder.append("\n- ${formatDate(timestamp, "dd/MM/yyyy HH:mm:ss")}")
+            }
+        }
+        binding.tvEditHistory.text = historyBuilder.toString()
+    }
+
+    private fun formatDate(timestamp: Long, format: String): String =
+        SimpleDateFormat(format, Locale.getDefault()).format(Date(timestamp))
+
+    // Diğer tüm fonksiyonlar... (toggleRecording, startRecording, vs.)
+    // Bu fonksiyonlar içerisinde bir değişiklik gerekmediği için olduğu gibi bırakılabilir.
+    // Eksiksiz olması adına buraya da ekliyorum:
 
     private fun toggleRecording() {
         if (isRecording) {
@@ -372,9 +589,7 @@ class NoteActivity : AppCompatActivity() {
             AlertDialog.Builder(this)
                 .setTitle(getString(R.string.overwrite_audio_title))
                 .setMessage(getString(R.string.overwrite_audio_message))
-                .setPositiveButton(getString(R.string.dialog_yes)) { _, _ ->
-                    proceedWithRecording()
-                }
+                .setPositiveButton(getString(R.string.dialog_yes)) { _, _ -> proceedWithRecording() }
                 .setNegativeButton(getString(R.string.dialog_no), null)
                 .show()
         } else {
@@ -625,257 +840,6 @@ class NoteActivity : AppCompatActivity() {
 
         isUpdatingToggleButtons = false
     }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        restartHandler.removeCallbacksAndMessages(null)
-        if(::speechRecognizer.isInitialized) {
-            speechRecognizer.destroy()
-        }
-        releaseMediaPlayer()
-        if (isRecording) {
-            stopRecording()
-        }
-    }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        processIntent(intent)
-    }
-
-    private fun processIntent(intent: Intent) {
-        isFromWidget = intent.getBooleanExtra("FROM_WIDGET", false)
-        currentNoteId = intent.getIntExtra("NOTE_ID", 0).takeIf { it != 0 }
-
-        if (currentNoteId != null) {
-            binding.btnDeleteNote.visibility = View.VISIBLE
-            viewModel.loadNote(currentNoteId!!)
-        } else {
-            currentNoteId = null
-            binding.btnDeleteNote.visibility = View.GONE
-            displayNote(null)
-        }
-        binding.btnShowHistory.visibility = if (currentNoteId != null) View.VISIBLE else View.GONE
-    }
-
-    private fun setupChecklist() {
-        checklistAdapter = ChecklistItemAdapter(checklistItems)
-        binding.rvChecklist.adapter = checklistAdapter
-        binding.rvChecklist.layoutManager = LinearLayoutManager(this)
-        binding.btnAddChecklistItem.setOnClickListener { checklistAdapter.addItem() }
-    }
-
-    private fun setupColorPickers() {
-        colorPickers = listOf(
-            binding.colorDefault,
-            binding.colorYellow,
-            binding.colorBlue,
-            binding.colorGreen,
-            binding.colorPink,
-            binding.colorPurple,
-            binding.colorOrange
-        )
-
-        val listeners = mapOf(
-            binding.colorDefault to R.color.note_color_default,
-            binding.colorYellow to R.color.note_color_yellow,
-            binding.colorBlue to R.color.note_color_blue,
-            binding.colorGreen to R.color.note_color_green,
-            binding.colorPink to R.color.note_color_pink,
-            binding.colorPurple to R.color.note_color_purple,
-            binding.colorOrange to R.color.note_color_orange
-        )
-        listeners.forEach { (view, colorResId) -> view.setOnClickListener { onColorSelected(it, colorResId) } }
-    }
-
-    private fun onColorSelected(view: View, colorResId: Int) {
-        selectedColor = String.format("#%08X", ContextCompat.getColor(this, colorResId))
-        updateColorSelection(view)
-        updateWindowBackground()
-    }
-
-    private fun updateColorSelection(selectedView: View?) {
-        colorPickers.forEach { it.isSelected = (it == selectedView) }
-    }
-
-    private fun getContrastingTextColor(backgroundColor: String): Int {
-        return try {
-            val colorInt = backgroundColor.toColorInt()
-            if ((0.299 * Color.red(colorInt) + 0.587 * Color.green(colorInt) + 0.114 * Color.blue(colorInt)) / 255 > 0.5)
-                ContextCompat.getColor(this, R.color.black)
-            else
-                ContextCompat.getColor(this, R.color.white)
-        } catch (_: IllegalArgumentException) {
-            ContextCompat.getColor(this, R.color.black)
-        }
-    }
-
-    private fun updateWindowBackground() {
-        try {
-            val color = selectedColor.toColorInt()
-            window.setBackgroundDrawable(color.toDrawable())
-            binding.root.setBackgroundColor(color)
-        } catch (_: IllegalArgumentException) {
-            val defaultColor = Color.WHITE
-            window.setBackgroundDrawable(defaultColor.toDrawable())
-            binding.root.setBackgroundColor(defaultColor)
-        }
-        val textColor = getContrastingTextColor(selectedColor)
-        checklistAdapter.updateColors(textColor, textColor)
-        if (checklistAdapter.itemCount > 0) {
-            checklistAdapter.notifyItemRangeChanged(0, checklistAdapter.itemCount)
-        }
-        binding.etNoteTitle.setTextColor(textColor)
-        binding.etNoteInput.setTextColor(textColor)
-    }
-
-    private fun displayNote(note: Note?) {
-        if (note == null) {
-            binding.etNoteTitle.text?.clear()
-            binding.etNoteInput.text?.clear()
-            displayEditHistory(null)
-            val oldSize = checklistItems.size
-            checklistItems.clear()
-            if(oldSize > 0) checklistAdapter.notifyItemRangeRemoved(0, oldSize)
-            binding.llAudioPlayer.visibility = View.GONE
-            audioPath = null
-            binding.ivImagePreview.visibility = View.GONE
-            imagePath = null
-            selectedColor = "#FFECEFF1"
-            updateColorSelection(binding.colorDefault)
-            updateWindowBackground()
-
-            // --- YENİ NOT İÇİN BAŞLANGIÇ DURUMUNU AYARLA ---
-            initialNoteState = NoteState(
-                title = "",
-                contentHtml = "",
-                checklist = emptyList(),
-                color = selectedColor,
-                imagePath = null,
-                audioPath = null
-            )
-            return
-        }
-
-        binding.etNoteTitle.setText(note.title)
-        displayEditHistory(note)
-        try {
-            val content = gson.fromJson(note.content, NoteContent::class.java)
-            binding.etNoteInput.setText(Html.fromHtml(content.text, Html.FROM_HTML_MODE_LEGACY))
-
-            val oldSize = checklistItems.size
-            checklistItems.clear()
-            if (oldSize > 0) checklistAdapter.notifyItemRangeRemoved(0, oldSize)
-
-            checklistItems.addAll(content.checklist)
-            if(checklistItems.isNotEmpty()) checklistAdapter.notifyItemRangeInserted(0, checklistItems.size)
-
-            if (content.audioFilePath != null) {
-                audioPath = content.audioFilePath
-                binding.llAudioPlayer.visibility = View.VISIBLE
-                binding.tvAudioTitle.text = note.title.ifBlank { getString(R.string.voice_recording_title) }
-                prepareMediaPlayer()
-            } else {
-                binding.llAudioPlayer.visibility = View.GONE
-                audioPath = null
-            }
-
-            if (content.imagePath != null) {
-                imagePath = content.imagePath
-                binding.ivImagePreview.visibility = View.VISIBLE
-                binding.ivImagePreview.load(content.imagePath) {
-                    crossfade(true)
-                    placeholder(R.drawable.ic_image_24)
-                    error(R.drawable.ic_image_24)
-                }
-            } else {
-                imagePath = null
-                binding.ivImagePreview.visibility = View.GONE
-            }
-
-            // --- MEVCUT NOT İÇİN BAŞLANGIÇ DURUMUNU AYARLA ---
-            initialNoteState = NoteState(
-                title = note.title,
-                contentHtml = content.text,
-                checklist = content.checklist.map { it.copy() }, // Değişiklikleri izlemek için derin kopya
-                color = note.color,
-                imagePath = content.imagePath,
-                audioPath = content.audioFilePath
-            )
-
-        } catch (_: JsonSyntaxException) {
-            binding.etNoteInput.setText(Html.fromHtml(note.content, Html.FROM_HTML_MODE_LEGACY))
-            val oldSize = checklistItems.size
-            checklistItems.clear()
-            if (oldSize > 0) checklistAdapter.notifyItemRangeRemoved(0, oldSize)
-            binding.llAudioPlayer.visibility = View.GONE
-            audioPath = null
-            binding.ivImagePreview.visibility = View.GONE
-            imagePath = null
-
-            // --- ESKİ NOT FORMATI İÇİN BAŞLANGIÇ DURUMUNU AYARLA ---
-            initialNoteState = NoteState(
-                title = note.title,
-                contentHtml = note.content,
-                checklist = emptyList(),
-                color = note.color,
-                imagePath = null,
-                audioPath = null
-            )
-        }
-        selectedColor = note.color
-        updateWindowBackground()
-        val colorInt = try { note.color.toColorInt() } catch (_: Exception) { Color.WHITE }
-        val viewToSelect = colorPickers.getOrNull(
-            when (colorInt) {
-                ContextCompat.getColor(this@NoteActivity, R.color.note_color_yellow) -> 1
-                ContextCompat.getColor(this@NoteActivity, R.color.note_color_blue) -> 2
-                ContextCompat.getColor(this@NoteActivity, R.color.note_color_green) -> 3
-                ContextCompat.getColor(this@NoteActivity, R.color.note_color_pink) -> 4
-                ContextCompat.getColor(this@NoteActivity, R.color.note_color_purple) -> 5
-                ContextCompat.getColor(this@NoteActivity, R.color.note_color_orange) -> 6
-                else -> 0
-            }
-        )
-        updateColorSelection(viewToSelect)
-        updateFormattingButtonsState()
-    }
-
-    private fun showDeleteConfirmationDialog() {
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.delete_note_confirmation_title))
-            .setMessage(getString(R.string.delete_note_to_trash_confirmation_message))
-            .setPositiveButton(getString(R.string.dialog_move_to_trash)) { _, _ -> viewModel.moveNoteToTrash(currentNoteId) }
-            .setNegativeButton(getString(R.string.dialog_cancel), null)
-            .show()
-    }
-
-    private fun updateAllWidgets() {
-        val appWidgetManager = AppWidgetManager.getInstance(this)
-        val componentName = ComponentName(this, NoteWidgetProvider::class.java)
-        appWidgetManager.getAppWidgetIds(componentName).forEach { appWidgetId ->
-            NoteWidgetProvider.updateAppWidget(this, appWidgetManager, appWidgetId)
-        }
-    }
-
-    private fun displayEditHistory(note: Note?) {
-        if (note == null) {
-            binding.tvEditHistory.text = ""
-            return
-        }
-        val historyBuilder = StringBuilder(getString(R.string.creation_date_label, formatDate(note.createdAt, "dd/MM/yyyy HH:mm:ss")))
-        if (note.modifiedAt.isNotEmpty()) {
-            historyBuilder.append("\n\n${getString(R.string.edit_history_title)}")
-            note.modifiedAt.forEach { timestamp ->
-                historyBuilder.append("\n- ${formatDate(timestamp, "dd/MM/yyyy HH:mm:ss")}")
-            }
-        }
-        binding.tvEditHistory.text = historyBuilder.toString()
-    }
-
-    private fun formatDate(timestamp: Long, format: String): String =
-        SimpleDateFormat(format, Locale.getDefault()).format(Date(timestamp))
 
     private fun prepareMediaPlayer() {
         releaseMediaPlayer()

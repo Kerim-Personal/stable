@@ -1,22 +1,27 @@
 package com.codenzi.snapnote
 
 import android.content.Context
+import android.net.Uri
 import androidx.core.content.FileProvider
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
+/**
+ * Resim dosyalarını yönetmek için merkezi yardımcı sınıf.
+ * Android'in modern depolama standartlarına (Scoped Storage) uyum sağlamak için
+ * mutlak dosya yolları yerine güvenli content:// URI'leri kullanır.
+ */
 object ImageManager {
 
-    // HATA DÜZELTME: Değişkenler 'private' yerine 'internal' yapıldı.
-    // Bu sayede NoteActivity gibi aynı modüldeki diğer sınıflar bu değişkenlere erişebilir.
     internal const val TEMP_IMAGE_PREFIX = "TEMP_"
     private const val FINAL_IMAGE_PREFIX = "IMG_"
     private const val IMAGE_SUFFIX = ".jpg"
 
-    // Geçici resim dosyaları için kullanılacak klasörü belirler.
+    /**
+     * Geçici resim dosyaları için uygulamanın önbellek (cache) dizinini döndürür.
+     */
     private fun getTempDirectory(context: Context): File {
-        // cacheDir, sistem tarafından gerektiğinde temizlenebilen bir dizindir.
         val tempDir = File(context.cacheDir, "temp_images")
         if (!tempDir.exists()) {
             tempDir.mkdirs()
@@ -24,49 +29,57 @@ object ImageManager {
         return tempDir
     }
 
-    // Kalıcı resim dosyaları için kullanılacak klasörü belirler.
+    /**
+     * Kalıcı resim dosyaları için uygulamanın harici depolama alanındaki özel dizinini döndürür.
+     */
     private fun getPermanentDirectory(context: Context): File {
-        // getExternalFilesDir, uygulamanın kaldırılmasıyla silinir ve kullanıcıya aittir.
         val permanentDir = context.getExternalFilesDir("Images")
         if (permanentDir != null && !permanentDir.exists()) {
             permanentDir.mkdirs()
         }
-        // Eğer external storage kullanılamıyorsa, internal storage'a döner.
-        return permanentDir ?: context.filesDir
+        return permanentDir ?: context.filesDir // Harici depolama yoksa dahili depolamayı kullan
     }
 
     /**
-     * Fotoğraf çekimi için geçici bir dosya ve URI'sini oluşturur.
-     * @return Geçici dosya ve FileProvider URI'sini içeren bir Pair.
+     * Fotoğraf çekimi için geçici bir dosya oluşturur ve bu dosyaya erişim için
+     * güvenli bir FileProvider URI'si döndürür.
+     *
+     * @param context Uygulama context'i.
+     * @return Geçici resim dosyası için güvenli bir content:// URI'si.
      */
-    fun createTempImageFile(context: Context): Pair<File, android.net.Uri> {
+    fun createTempImageUri(context: Context): Uri {
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val tempDir = getTempDirectory(context)
         val tempFile = File(tempDir, "$TEMP_IMAGE_PREFIX${timeStamp}$IMAGE_SUFFIX")
-        val tempUri = FileProvider.getUriForFile(context, "${context.packageName}.provider", tempFile)
-        return Pair(tempFile, tempUri)
+        // Güvenlik ve uyumluluk için FileProvider aracılığıyla URI oluşturuluyor.
+        return FileProvider.getUriForFile(context, "${context.packageName}.provider", tempFile)
     }
 
     /**
-     * Geçici bir resim dosyasını kalıcı hale getirir ve yeni yolunu döndürür.
-     * @param tempImagePath Geçici resim dosyasının yolu.
-     * @return Kalıcı dosyanın yolu veya işlem başarısız olursa null.
+     * Geçici bir resim URI'sini kalıcı bir depolama alanına taşır ve yeni, kalıcı
+     * dosyaya ait güvenli URI'yi döndürür.
+     *
+     * @param context Uygulama context'i.
+     * @param tempImageUri Kalıcı hale getirilecek geçici resmin URI'si.
+     * @return Kalıcı resim dosyası için yeni ve güvenli bir content:// URI'si veya işlem başarısız olursa null.
      */
-    fun makeImagePermanent(context: Context, tempImagePath: String): String? {
-        val tempFile = File(tempImagePath)
-        // Sadece bizim oluşturduğumuz geçici dosyaları işleme al.
-        if (!tempFile.exists() || !tempFile.name.startsWith(TEMP_IMAGE_PREFIX)) {
-            return if (tempFile.exists()) tempImagePath else null
-        }
-
-        val permanentDir = getPermanentDirectory(context)
-        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val permanentFile = File(permanentDir, "$FINAL_IMAGE_PREFIX${timeStamp}$IMAGE_SUFFIX")
-
+    fun makeImagePermanent(context: Context, tempImageUri: Uri): Uri? {
+        // Gelen URI'den bir InputStream açarak dosya içeriğini okuyoruz.
+        // Bu, URI'nin bir dosya yoluna dönüştürülemediği durumlarda bile çalışır.
         return try {
-            tempFile.copyTo(permanentFile, overwrite = true)
-            tempFile.delete() // Kopyalama sonrası geçici dosyayı sil.
-            permanentFile.absolutePath
+            context.contentResolver.openInputStream(tempImageUri)?.use { inputStream ->
+                val permanentDir = getPermanentDirectory(context)
+                val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                val permanentFile = File(permanentDir, "$FINAL_IMAGE_PREFIX${timeStamp}$IMAGE_SUFFIX")
+
+                // İçeriği yeni kalıcı dosyaya kopyalıyoruz.
+                permanentFile.outputStream().use { outputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+
+                // Kopyalama başarılıysa, yeni kalıcı dosya için güvenli bir URI oluşturup döndürüyoruz.
+                FileProvider.getUriForFile(context, "${context.packageName}.provider", permanentFile)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             null
@@ -74,7 +87,10 @@ object ImageManager {
     }
 
     /**
-     * Uygulama başlangıcında çağrılarak sahipsiz kalmış geçici dosyaları temizler.
+     * Uygulama başlangıcında veya belirli aralıklarla çağrılarak,
+     * önbellekte kalmış sahipsiz geçici resim dosyalarını temizler.
+     *
+     * @param context Uygulama context'i.
      */
     fun cleanUpTemporaryFiles(context: Context) {
         val tempDir = getTempDirectory(context)
