@@ -732,6 +732,8 @@ class SettingsActivity : AppCompatActivity() {
                 progressBar?.isIndeterminate = false
             }
 
+            val tempDir = File(requireContext().cacheDir, "backup_temp").apply { mkdirs() }
+
             try {
                 val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
                 val appSettings = AppSettings(
@@ -754,9 +756,17 @@ class SettingsActivity : AppCompatActivity() {
                     var imageDriveId: String? = null
 
                     content.imagePath?.let { path ->
-                        val imageFile = File(path)
-                        if (imageFile.exists()) {
-                            imageDriveId = googleDriveManager.uploadMediaFile(imageFile, "image/jpeg")
+                        try {
+                            val imageUri = Uri.parse(path)
+                            requireContext().contentResolver.openInputStream(imageUri)?.use { inputStream ->
+                                val tempFile = File(tempDir, "temp_image_${System.currentTimeMillis()}.jpg")
+                                FileOutputStream(tempFile).use { outputStream ->
+                                    inputStream.copyTo(outputStream)
+                                }
+                                imageDriveId = googleDriveManager.uploadMediaFile(tempFile, "image/jpeg")
+                            }
+                        } catch (e: Exception) {
+                            Log.e("SettingsBackup", "Görsel işlenirken hata oluştu: $path", e)
                         }
                     }
 
@@ -803,6 +813,8 @@ class SettingsActivity : AppCompatActivity() {
                     dismissProgressDialog()
                 }
                 showError("Backup failed", e)
+            } finally {
+                tempDir.deleteRecursively()
             }
         }
 

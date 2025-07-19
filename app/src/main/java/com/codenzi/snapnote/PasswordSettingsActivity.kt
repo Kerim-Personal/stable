@@ -2,6 +2,7 @@ package com.codenzi.snapnote
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -28,7 +29,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.IOException
+import java.io.FileOutputStream
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -81,9 +82,7 @@ class PasswordSettingsActivity : AppCompatActivity() {
         if (PasswordManager.isPasswordSet()) {
             binding.tilCurrentPassword.visibility = View.VISIBLE
             binding.btnDisablePassword.visibility = View.VISIBLE
-            // Mevcut güvenlik sorusunu göster
             binding.etSecurityQuestion.setText(PasswordManager.getSecurityQuestion())
-            // Cevap alanı her zaman boş ve placeholder ile gösterilmeli
             binding.etSecurityAnswer.hint = "Değiştirmek için yeni cevabı girin"
         } else {
             binding.tilCurrentPassword.visibility = View.GONE
@@ -226,6 +225,8 @@ class PasswordSettingsActivity : AppCompatActivity() {
             showProgressDialog()
         }
 
+        val tempDir = File(cacheDir, "backup_temp").apply { mkdirs() }
+
         try {
             val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this)
             val appSettings = AppSettings(
@@ -234,7 +235,6 @@ class PasswordSettingsActivity : AppCompatActivity() {
                 widgetBackgroundSelection = sharedPrefs.getString("widget_background_selection", "widget_background")
             )
 
-            // Tüm güvenlik verileri alınıyor
             val passwordHash = PasswordManager.getPasswordHash()
             val salt = PasswordManager.getSalt()
             val securityQuestion = PasswordManager.getSecurityQuestion()
@@ -248,10 +248,17 @@ class PasswordSettingsActivity : AppCompatActivity() {
                 val content = gson.fromJson(note.content, NoteContent::class.java)
                 var imageDriveId: String? = null
                 content.imagePath?.let { path ->
-                    try { File(path.toUri().path!!) } catch (e: Exception) { null }?.let { imageFile ->
-                        if (imageFile.exists()) {
-                            imageDriveId = googleDriveManager.uploadMediaFile(imageFile, "image/jpeg")
+                    try {
+                        val imageUri = Uri.parse(path)
+                        contentResolver.openInputStream(imageUri)?.use { inputStream ->
+                            val tempFile = File(tempDir, "temp_image_${System.currentTimeMillis()}.jpg")
+                            FileOutputStream(tempFile).use { outputStream ->
+                                inputStream.copyTo(outputStream)
+                            }
+                            imageDriveId = googleDriveManager.uploadMediaFile(tempFile, "image/jpeg")
                         }
+                    } catch (e: Exception) {
+                        Log.e("PasswordSettingsBackup", "Görsel işlenirken hata oluştu: $path", e)
                     }
                 }
                 var audioDriveId: String? = null
@@ -270,7 +277,6 @@ class PasswordSettingsActivity : AppCompatActivity() {
                 }
             }
 
-            // BackupData oluşturulurken yeni alanlar ekleniyor
             val backupData = BackupData(
                 settings = appSettings,
                 notes = notesForBackup,
@@ -300,6 +306,8 @@ class PasswordSettingsActivity : AppCompatActivity() {
                 Toast.makeText(this@PasswordSettingsActivity, "Yedekleme başarısız: ${e.message}", Toast.LENGTH_LONG).show()
                 finish()
             }
+        } finally {
+            tempDir.deleteRecursively()
         }
     }
 

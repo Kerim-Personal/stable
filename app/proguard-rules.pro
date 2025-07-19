@@ -113,3 +113,26 @@
 -dontwarn org.ietf.jgss.GSSName
 -dontwarn org.ietf.jgss.Oid
 -dontwarn org.joda.time.Instant
+
+# Google Sign-In için gerekli kurallar
+-keep class com.google.android.gms.auth.** { *; }
+-dontwarn com.google.android.gms.auth.**
+
+# Google API Client ve Drive API için gerekli kurallar
+-keep class com.google.api.client.** { *; }
+-dontwarn com.google.api.client.**
+-keepclassmembers class * extends com.google.api.client.util.GenericData {
+    public <init>();
+}
+
+# Gson (JSON işleme) için gerekli kurallar
+# Yedekleme ve geri yüklemede kullanılan veri sınıflarını korur
+-keep class com.codenzi.snapnote.BackupData { *; }
+-keep class com.codenzi.snapnote.AppSettings { *; }
+-keep class com.codenzi.snapnote.NoteContent { *; }
+-keep class com.codenzi.snapnote.ChecklistItem { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
+-keepclassmembers,allowshrinking class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
