@@ -11,7 +11,7 @@ object ThemeManager {
 
     fun getThemeResId(context: Context): Int {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        val colorValue = prefs.getString("color_selection", "bordo")
+        val colorValue = prefs.getString("color_selection", "rose")
 
         return when (colorValue) {
             "bordo" -> R.style.Theme_AcilNotUygulamasi_Bordo
@@ -25,7 +25,7 @@ object ThemeManager {
             "grey" -> R.style.Theme_AcilNotUygulamasi_Grey
             "cyan" -> R.style.Theme_AcilNotUygulamasi_Cyan
             "lime" -> R.style.Theme_AcilNotUygulamasi_Lime
-            else -> R.style.Theme_AcilNotUygulamasi_Bordo
+            else -> R.style.Theme_AcilNotUygulamasi_Rose
         }
     }
 }

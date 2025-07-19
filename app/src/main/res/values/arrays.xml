@@ -41,10 +41,10 @@
     </string-array>
 
     <string-array name="color_theme_entries">
-        <item>Maroon</item>
+        <item>Rose</item>
         <item>Ocean Blue</item>
         <item>Forest Green</item>
-        <item>Rose</item>
+        <item>Maroon</item>
         <item>Teal</item>
         <item>Indigo</item>
         <item>Orange</item>
@@ -55,10 +55,10 @@
     </string-array>
 
     <string-array name="color_theme_values" translatable="false">
-        <item>bordo</item>
+        <item>rose</item>
         <item>blue</item>
         <item>green</item>
-        <item>rose</item>
+        <item>bordo</item>
         <item>teal</item>
         <item>indigo</item>
         <item>orange</item>

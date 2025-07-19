@@ -290,7 +290,7 @@ class SettingsActivity : AppCompatActivity() {
                 val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
                 val appSettings = AppSettings(
                     themeSelection = sharedPrefs.getString("theme_selection", "system_default"),
-                    colorSelection = sharedPrefs.getString("color_selection", "bordo"),
+                    colorSelection = sharedPrefs.getString("color_selection", "rose"),
                     widgetBackgroundSelection = sharedPrefs.getString("widget_background_selection", "widget_background")
                 )
 
@@ -465,7 +465,7 @@ class SettingsActivity : AppCompatActivity() {
 
                 val prefsEditor = PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
                 prefsEditor.putString("theme_selection", backupData.settings.themeSelection)
-                prefsEditor.putString("color_selection", backupData.settings.colorSelection)
+                prefsEditor.putString("color_selection", backupData.settings.colorSelection ?: "rose")
                 prefsEditor.putString("widget_background_selection", backupData.settings.widgetBackgroundSelection)
                 prefsEditor.apply()
 
@@ -724,7 +724,7 @@ class SettingsActivity : AppCompatActivity() {
                 val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
                 val appSettings = AppSettings(
                     themeSelection = sharedPrefs.getString("theme_selection", "system_default"),
-                    colorSelection = sharedPrefs.getString("color_selection", "bordo"),
+                    colorSelection = sharedPrefs.getString("color_selection", "rose"),
                     widgetBackgroundSelection = sharedPrefs.getString("widget_background_selection", "widget_background")
                 )
 
@@ -1056,7 +1056,7 @@ class SettingsActivity : AppCompatActivity() {
 
                     val prefsEditor = PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
                     prefsEditor.putString("theme_selection", backupData.settings.themeSelection)
-                    prefsEditor.putString("color_selection", backupData.settings.colorSelection)
+                    prefsEditor.putString("color_selection", backupData.settings.colorSelection ?: "rose")
                     prefsEditor.putString("widget_background_selection", backupData.settings.widgetBackgroundSelection)
                     prefsEditor.apply()
 
