@@ -42,7 +42,7 @@
 
         <activity
             android:name=".PasswordCheckActivity"
-            android:exported="true" />
+            android:exported="false" />
 
         <activity
             android:name=".MainActivity"

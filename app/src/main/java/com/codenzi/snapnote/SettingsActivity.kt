@@ -214,12 +214,24 @@ class SettingsActivity : AppCompatActivity() {
             }
 
             findPreference<Preference>("privacy_policy")?.setOnPreferenceClickListener {
-                val url = "https://codenzi.com/snapnote"
+                val url = "https://www.codenzi.com/snapnote-privacy-policy.html"
                 val intent = Intent(Intent.ACTION_VIEW, url.toUri())
                 try {
                     startActivity(intent)
                 } catch (e: Exception) {
                     Log.e("SettingsFragment", "Could not open browser for privacy policy", e)
+                    Toast.makeText(requireContext(), getString(R.string.toast_no_browser_found), Toast.LENGTH_SHORT).show()
+                }
+                true
+            }
+
+            findPreference<Preference>("term_of_use")?.setOnPreferenceClickListener {
+                val url = "https://www.codenzi.com/snapnote-term-of-use.html"
+                val intent = Intent(Intent.ACTION_VIEW, url.toUri())
+                try {
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Log.e("SettingsFragment", "Could not open browser for term of use", e)
                     Toast.makeText(requireContext(), getString(R.string.toast_no_browser_found), Toast.LENGTH_SHORT).show()
                 }
                 true
