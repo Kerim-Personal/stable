@@ -1,6 +1,5 @@
 # Bu dosya, getDefaultProguardFile('proguard-android-optimize.txt') tarafından
 # sağlanan varsayılan kurallara ek olarak kullanılır.
-
 #------------- Kotlin Coroutines Kuralları -------------
 # Coroutines'in dahili hata ayıklama mekanizmalarının çalışmasını sağlar.
 -keep class kotlinx.coroutines.debug.internal.DebugProbesKt {
@@ -46,7 +45,8 @@
 # Room veritabanı varlık (entity) sınıflarını korur.
 # Bu sınıfların alan adları veritabanı sütun adlarıyla eşleştiği için
 # yeniden adlandırılmamalıdır.
--keep class androidx.room.** { *; }
+-keep class androidx.room.** { *;
+}
 -keepclassmembers class * {
     @androidx.room.Entity *;
 }
@@ -71,7 +71,8 @@
 
 #------------- Veri/Model Sınıfları (Data/Model Classes) -------------
 # API yanıtları veya veritabanı modelleri gibi serileştirme/çözme işlemi
-# gören veri sınıflarını korur. Paket adını kendi projenize göre güncelleyin.
+# gören veri sınıflarını korur.
+# Paket adını kendi projenize göre güncelleyin.
 -keep class com.codenzi.snapnote.data.model.** { *; }
 -keepclassmembers class com.codenzi.snapnote.data.model.** {
     <fields>;
@@ -89,3 +90,26 @@
     public static **[] values();
     public static ** valueOf(java.lang.String);
 }
+
+# Please add these rules to your existing keep rules in order to suppress warnings.
+# This is generated automatically by the Android Gradle plugin.
+-dontwarn javax.naming.InvalidNameException
+-dontwarn javax.naming.NamingException
+-dontwarn javax.naming.directory.Attribute
+-dontwarn javax.naming.directory.Attributes
+-dontwarn javax.naming.ldap.LdapName
+-dontwarn javax.naming.ldap.Rdn
+-dontwarn javax.servlet.ServletContextListener
+-dontwarn org.apache.avalon.framework.logger.Logger
+-dontwarn org.apache.log.Hierarchy
+-dontwarn org.apache.log.Logger
+-dontwarn org.apache.log4j.Level
+-dontwarn org.apache.log4j.Logger
+-dontwarn org.apache.log4j.Priority
+-dontwarn org.ietf.jgss.GSSContext
+-dontwarn org.ietf.jgss.GSSCredential
+-dontwarn org.ietf.jgss.GSSException
+-dontwarn org.ietf.jgss.GSSManager
+-dontwarn org.ietf.jgss.GSSName
+-dontwarn org.ietf.jgss.Oid
+-dontwarn org.joda.time.Instant
