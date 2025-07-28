@@ -38,42 +38,16 @@
     </PreferenceCategory>
 
     <PreferenceCategory
-        android:title="@string/data_management_title">
-
-        <Preference
-            android:key="google_drive_backup"
-            android:title="@string/backup_to_drive_title"
-            android:summary="@string/backup_to_drive_summary"
-            app:icon="@drawable/cloud_upload" />
-
-        <Preference
-            android:key="google_drive_restore"
-            android:title="@string/restore_from_drive_title"
-            android:summary="@string/restore_from_drive_summary"
-            app:icon="@drawable/cloud_download" />
-
-        <Preference
-            android:key="export_to_phone"
-            android:title="@string/export_to_phone_title"
-            android:summary="@string/export_to_phone_summary"
-            app:icon="@drawable/ic_file_upload"/>
-
-        <Preference
-            android:key="import_from_phone"
-            android:title="@string/import_from_phone_title"
-            android:summary="@string/import_from_phone_summary"
-            app:icon="@drawable/ic_file_download"/>
-
-        <Preference
-            android:key="delete_account"
-            android:title="@string/delete_account_title"
-            android:summary="@string/delete_account_summary"
-            app:icon="@drawable/outline_delete_24" />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory
         android:title="@string/other_settings_category_title">
+
+        <Preference
+            android:key="data_management"
+            android:title="@string/data_management_title"
+            android:summary="Yedekleme, geri yükleme ve hesap silme işlemlerini yönetin."
+            app:icon="@drawable/ic_settings_24">
+            <intent android:targetPackage="com.codenzi.snapnote"
+                android:targetClass="com.codenzi.snapnote.BackupActivity"/>
+        </Preference>
 
         <Preference
             android:key="password_settings"
