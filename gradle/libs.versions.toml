@@ -10,7 +10,7 @@ material = "1.12.0"
 activity = "1.10.1"
 constraintlayout = "2.2.1"
 ksp = "2.0.0-1.0.22"
-lifecycle = "2.9.1"
+lifecycle = "2.9.2"
 room = "2.7.2"
 gson = "2.13.1"
 preferenceKtx = "1.2.1"
@@ -21,11 +21,11 @@ camerax = "1.4.2"
 coil = "2.7.0"
 photoview = "2.3.0"
 # --- GÜNCELLEME: Google Drive için en stabil sürümler ve ek bağımlılıklar ---
-googlePlayServicesAuth = "21.2.0"
-googleApiClient = "2.4.0" # google-api-client
-googleOauthClient = "1.36.0" # google-oauth-client
-googleApiClientAndroid = "2.4.0" # google-api-client-android
-googleHttpAndroid = "1.44.2" # google-http-client-android
+googlePlayServicesAuth = "21.4.0"
+googleApiClient = "2.8.0" # google-api-client
+googleOauthClient = "1.39.0" # google-oauth-client
+googleApiClientAndroid = "2.8.0" # google-api-client-android
+googleHttpAndroid = "1.47.1" # google-http-client-android
 # Hatalı versiyonu güncel ve stabil bir versiyonla değiştiriyoruz.
 googleApiServicesDrive = "v3-rev20220815-2.0.0"
 
