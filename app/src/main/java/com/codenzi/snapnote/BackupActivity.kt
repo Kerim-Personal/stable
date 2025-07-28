@@ -158,12 +158,25 @@ class BackupActivity : AppCompatActivity() {
                 val content = gson.fromJson(note.content, NoteContent::class.java)
                 var newImagePath: String? = null
                 content.imagePath?.let { path ->
-                    val sourceFile = File(path)
-                    if (sourceFile.exists()) {
-                        val destFile = File(tempDir, sourceFile.name)
-                        sourceFile.copyTo(destFile, overwrite = true)
-                        filesToZip.add(destFile)
-                        newImagePath = sourceFile.name
+                    try {
+                        val imageUri = Uri.parse(path)
+                        // Dosya adını URI'dan alıyoruz veya yeni bir tane oluşturuyoruz
+                        val fileName = imageUri.lastPathSegment ?: "image_${System.currentTimeMillis()}.jpg"
+                        val destFile = File(tempDir, fileName)
+
+                        // Güvenli yöntem: URI'yi ContentResolver ile açıp içeriği kopyalıyoruz
+                        contentResolver.openInputStream(imageUri)?.use { inputStream ->
+                            FileOutputStream(destFile).use { outputStream ->
+                                inputStream.copyTo(outputStream)
+                            }
+                        }
+
+                        if (destFile.exists()) {
+                            filesToZip.add(destFile)
+                            newImagePath = destFile.name
+                        }
+                    } catch (e: Exception) {
+                        Log.e("BackupActivity", "Yerel dışa aktarma için görsel işlenirken hata: $path", e)
                     }
                 }
                 var newAudioPath: String? = null
