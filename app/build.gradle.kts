@@ -36,8 +36,8 @@ android {
         applicationId = "com.codenzi.snapnote"
         minSdk = 24
         targetSdk = 36
-        versionCode = 17
-        versionName = "1.1.6"
+        versionCode = 20
+        versionName = "1.1.9"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -52,10 +52,10 @@ android {
             // Release derlemesi için imza yapılandırması atanıyor.
             signingConfig = signingConfigs.getByName("release")
         }
-        // Debug derlemesine de release imzası atanıyor.
-        // Bu, Play Store sürümünün üzerine güncelleme yapmanızı sağlar.
         debug {
-            signingConfig = signingConfigs.getByName("release")
+            // Hata ayıklama (debug) build'leri için özel bir imza yapılandırması atanmamıştır.
+            // Android Studio bu durumda otomatik olarak varsayılan debug anahtarını kullanacaktır.
+            // Bu satır kaldırıldı: signingConfig = signingConfigs.getByName("release")
         }
     }
 

@@ -26,7 +26,7 @@ abstract class NoteDatabase : RoomDatabase() {
                     NoteDatabase::class.java,
                     "note_database"
                 )
-                    // ADIM 2: Bu satırı kaldırın.
+                    // ADIM 2: Bu satırı kaldırın. Artık veri kaybı yaşanmayacak.
                     // .fallbackToDestructiveMigration()
 
                     // ADIM 3: Migration kuralını ekleyin.
