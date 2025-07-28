@@ -536,7 +536,31 @@ class SettingsActivity : AppCompatActivity() {
                 .build()
 
             val googleSignInClient = GoogleSignIn.getClient(requireActivity(), gso)
-            googleSignInClient.signOut().addOnCompleteListener {
+
+            // Önce mevcut oturumu kontrol et
+            val lastSignedInAccount = GoogleSignIn.getLastSignedInAccount(requireContext())
+
+            // Eğer kullanıcı zaten oturum açmış ve gerekli izinleri vermişse, tekrar sorma.
+            if (lastSignedInAccount != null && GoogleSignIn.hasPermissions(lastSignedInAccount, Scope("https://www.googleapis.com/auth/drive.appdata"))) {
+                // Zaten oturum açık, doğrudan ilgili işlemi yap.
+                // `handleSignInResult` fonksiyonu bu hesap bilgisiyle çağrılabilir.
+                // Ancak bu senaryoda doğrudan yedekleme/geri yükleme fonksiyonunu çağırmak daha mantıklı.
+                val credential = GoogleAccountCredential.usingOAuth2(
+                    requireContext(),
+                    listOf("https://www.googleapis.com/auth/drive.appdata")
+                ).setSelectedAccount(lastSignedInAccount.account)
+
+                val googleDriveManager = GoogleDriveManager(credential)
+
+                when (requestedAction) {
+                    Action.BACKUP -> backupNotes(googleDriveManager)
+                    Action.RESTORE -> restoreNotes(googleDriveManager)
+                    Action.DELETE -> performAccountDeletion(googleDriveManager)
+                    else -> {}
+                }
+            } else {
+                // Oturum açık değil veya izinler eksik, kullanıcıya oturum açma ekranını göster.
+                // Artık signOut olmadan, temiz bir şekilde...
                 googleSignInLauncher.launch(googleSignInClient.signInIntent)
             }
         }

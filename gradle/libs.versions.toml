@@ -14,21 +14,19 @@ lifecycle = "2.9.2"
 room = "2.7.2"
 gson = "2.13.1"
 preferenceKtx = "1.2.1"
-kotlinxCoroutines = "1.10.2"
+kotlinxCoroutines = "1.8.1"
 securityCrypto = "1.1.0-beta01"
 work = "2.10.2"
 camerax = "1.4.2"
 coil = "2.7.0"
 photoview = "2.3.0"
-# --- GÜNCELLEME: Google Drive için en stabil sürümler ve ek bağımlılıklar ---
 googlePlayServicesAuth = "21.4.0"
-googleApiClient = "2.8.0" # google-api-client
-googleOauthClient = "1.39.0" # google-oauth-client
-googleApiClientAndroid = "2.8.0" # google-api-client-android
-googleHttpAndroid = "1.47.1" # google-http-client-android
-# Hatalı versiyonu güncel ve stabil bir versiyonla değiştiriyoruz.
+googleApiClient = "2.8.0"
+googleOauthClient = "1.39.0"
+googleApiClientAndroid = "2.8.0"
+googleHttpAndroid = "1.47.1"
 googleApiServicesDrive = "v3-rev20220815-2.0.0"
-
+hilt = "2.51.1" # Hata çözümü için versiyonu geri aldık
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -54,16 +52,18 @@ androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycl
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 coil = { group = "io.coil-kt", name = "coil", version.ref = "coil" }
 photoview = { group = "com.github.chrisbanes", name = "PhotoView", version.ref = "photoview" }
-# --- GÜNCELLEME: Google Drive için kütüphane takma adları ---
 google-play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "googlePlayServicesAuth" }
 google-api-client = { group = "com.google.api-client", name = "google-api-client", version.ref = "googleApiClient" }
 google-oauth-client = { group = "com.google.oauth-client", name = "google-oauth-client", version.ref = "googleOauthClient" }
 google-api-client-android = { group = "com.google.api-client", name = "google-api-client-android", version.ref = "googleApiClientAndroid" }
 google-http-client-android = { group = "com.google.http-client", name = "google-http-client-android", version.ref = "googleHttpAndroid" }
 google-api-services-drive = { group = "com.google.apis", name = "google-api-services-drive", version.ref = "googleApiServicesDrive" }
-
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 google-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+# YENİ EKLENEN SATIR: Hilt eklentisi için takma ad.
+hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
