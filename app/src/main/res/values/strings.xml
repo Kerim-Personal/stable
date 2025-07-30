@@ -293,4 +293,5 @@
     <string name="restore_auth_choice_forgot_password">I Forgot My Password</string>
 
     <string name="reset_password_title">Set New Password</string>
+    <string name="data_management_summary">Manage backup, restore, and account deletion operations.</string>
 </resources>

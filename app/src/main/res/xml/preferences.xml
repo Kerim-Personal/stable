@@ -43,7 +43,7 @@
         <Preference
             android:key="data_management"
             android:title="@string/data_management_title"
-            android:summary="Yedekleme, geri yükleme ve hesap silme işlemlerini yönetin."
+            android:summary="@string/data_management_summary"
             app:icon="@drawable/ic_settings_24">
             <intent android:targetPackage="com.codenzi.snapnote"
                 android:targetClass="com.codenzi.snapnote.BackupActivity"/>
