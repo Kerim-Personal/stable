@@ -12,7 +12,6 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
 import com.codenzi.snapnote.databinding.ActivityPasswordSettingsBinding
@@ -231,7 +230,7 @@ class PasswordSettingsActivity : AppCompatActivity() {
             val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this)
             val appSettings = AppSettings(
                 themeSelection = sharedPrefs.getString("theme_selection", "system_default"),
-                colorSelection = sharedPrefs.getString("color_selection", "bordo"),
+                colorSelection = sharedPrefs.getString("color_selection", "rose"),
                 widgetBackgroundSelection = sharedPrefs.getString("widget_background_selection", "widget_background")
             )
 
@@ -255,7 +254,11 @@ class PasswordSettingsActivity : AppCompatActivity() {
                             FileOutputStream(tempFile).use { outputStream ->
                                 inputStream.copyTo(outputStream)
                             }
-                            imageDriveId = googleDriveManager.uploadMediaFile(tempFile, "image/jpeg")
+                            // DÜZELTME: DriveResult kontrolü eklendi
+                            when(val result = googleDriveManager.uploadMediaFile(tempFile, "image/jpeg")) {
+                                is DriveResult.Success -> imageDriveId = result.data
+                                is DriveResult.Error -> Log.e("PasswordSettingsBackup", "Görsel yüklenemedi: ${result.exception.message}")
+                            }
                         }
                     } catch (e: Exception) {
                         Log.e("PasswordSettingsBackup", "Görsel işlenirken hata oluştu: $path", e)
@@ -265,7 +268,11 @@ class PasswordSettingsActivity : AppCompatActivity() {
                 content.audioFilePath?.let { path ->
                     val audioFile = File(path)
                     if (audioFile.exists()) {
-                        audioDriveId = googleDriveManager.uploadMediaFile(audioFile, "audio/mp4")
+                        // DÜZELTME: DriveResult kontrolü eklendi
+                        when (val result = googleDriveManager.uploadMediaFile(audioFile, "audio/mp4")) {
+                            is DriveResult.Success -> audioDriveId = result.data
+                            is DriveResult.Error -> Log.e("PasswordSettingsBackup", "Ses dosyası yüklenemedi: ${result.exception.message}")
+                        }
                     }
                 }
                 val newContent = content.copy(imagePath = imageDriveId, audioFilePath = audioDriveId)
@@ -288,17 +295,23 @@ class PasswordSettingsActivity : AppCompatActivity() {
             )
             val backupJson = gson.toJson(backupData)
 
-            val success = googleDriveManager.uploadJsonBackup("snapnote_backup.json", backupJson)
-
-            withContext(Dispatchers.Main) {
-                updateProgress(100)
-                dismissProgressDialog()
-                if (success) {
-                    Toast.makeText(this@PasswordSettingsActivity, "Parola değişikliği Google Drive yedeğine başarıyla yansıtıldı.", Toast.LENGTH_LONG).show()
-                } else {
-                    Toast.makeText(this@PasswordSettingsActivity, "Parola değiştirildi ancak Drive yedeği güncellenemedi.", Toast.LENGTH_LONG).show()
+            // DÜZELTME: DriveResult kontrolü eklendi
+            when (val result = googleDriveManager.uploadJsonBackup("snapnote_backup.json", backupJson)) {
+                is DriveResult.Success -> {
+                    withContext(Dispatchers.Main) {
+                        updateProgress(100)
+                        dismissProgressDialog()
+                        Toast.makeText(this@PasswordSettingsActivity, "Parola değişikliği Google Drive yedeğine başarıyla yansıtıldı.", Toast.LENGTH_LONG).show()
+                        finish()
+                    }
                 }
-                finish()
+                is DriveResult.Error -> {
+                    withContext(Dispatchers.Main) {
+                        dismissProgressDialog()
+                        Toast.makeText(this@PasswordSettingsActivity, "Parola değiştirildi ancak Drive yedeği güncellenemedi.", Toast.LENGTH_LONG).show()
+                        finish()
+                    }
+                }
             }
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
