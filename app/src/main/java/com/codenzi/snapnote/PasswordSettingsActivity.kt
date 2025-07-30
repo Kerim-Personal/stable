@@ -10,6 +10,7 @@ import android.view.View
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -22,6 +23,7 @@ import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.auth.api.identity.SignInCredential
 import com.google.android.gms.common.api.ApiException
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
+import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
 import com.google.gson.Gson
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
@@ -46,14 +48,25 @@ class PasswordSettingsActivity : AppCompatActivity() {
     private var progressTitle: TextView? = null
     private var progressPercentage: TextView? = null
 
+    // YENİ: Kurtarılabilir yetkilendirme hatalarını yakalamak için Launcher.
+    private val requestAuthorizationLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            Toast.makeText(this, "İzin verildi. Lütfen ayarları kaydedip yedeklemeyi tekrar deneyin.", Toast.LENGTH_LONG).show()
+        } else {
+            Toast.makeText(this, "Google Drive izni reddedildi. Yedekleme yapılamadı.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // GÜNCELLENDİ: Yedekleme için Google Sign-In başlatıcısı.
     private val googleSignInLauncher = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             handleSignInResult(result.data)
         } else {
-            Toast.makeText(this, "Google ile oturum açma iptal edildi. Parola değişikliği yedeklenemedi.", Toast.LENGTH_LONG).show()
-            finish()
+            Toast.makeText(this, "Google ile oturum açma iptal edildi.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -158,7 +171,7 @@ class PasswordSettingsActivity : AppCompatActivity() {
             }
             .addOnFailureListener { e ->
                 Log.e("PasswordSettings", "Sign-in failed", e)
-                Toast.makeText(this, "Google ile oturum açılamadı. Parola değişikliği yedeklenemedi.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Google ile oturum açılamadı. Yedekleme yapılamadı.", Toast.LENGTH_LONG).show()
             }
     }
 
@@ -168,56 +181,44 @@ class PasswordSettingsActivity : AppCompatActivity() {
             performAutomaticBackup(credential)
         } catch (e: ApiException) {
             Log.w("PasswordSettings", "signInResult:failed code=" + e.statusCode, e)
-            Toast.makeText(this, "Google ile oturum açılamadı. Parola değişikliği yedeklenemedi.", Toast.LENGTH_LONG).show()
-            finish()
+            Toast.makeText(this, "Google oturum bilgisi alınamadı. Yedekleme yapılamadı.", Toast.LENGTH_LONG).show()
         }
     }
 
-    private fun showProgressDialog() {
-        val builder = AlertDialog.Builder(this)
-        val inflater = this.layoutInflater
-        val dialogView = inflater.inflate(R.layout.dialog_progress, null)
-
-        progressBar = dialogView.findViewById(R.id.progress_bar)
-        progressTitle = dialogView.findViewById(R.id.tv_progress_title)
-        progressPercentage = dialogView.findViewById(R.id.tv_progress_percentage)
-
-        progressTitle?.text = getString(R.string.backup_update_in_progress)
-
-        builder.setView(dialogView)
-        builder.setCancelable(false)
-        progressDialog = builder.create()
-        progressDialog?.show()
-    }
-
-    private fun updateProgress(progress: Int) {
-        progressBar?.progress = progress
-        progressPercentage?.text = "$progress%"
-    }
-
-    private fun dismissProgressDialog() {
-        progressDialog?.dismiss()
-        progressDialog = null
+    // YENİ: Drive hatalarını merkezi olarak yöneten fonksiyon
+    private suspend fun handleDriveError(e: Exception) {
+        if (e is UserRecoverableAuthIOException) {
+            withContext(Dispatchers.Main) {
+                dismissProgressDialog()
+                // Kullanıcıyı izinleri yenilemesi için yönlendir
+                requestAuthorizationLauncher.launch(e.intent)
+            }
+        } else {
+            withContext(Dispatchers.Main) {
+                dismissProgressDialog()
+                val errorMessage = e.message ?: "Bilinmeyen bir hata oluştu"
+                Toast.makeText(this@PasswordSettingsActivity, "Parola değiştirildi ancak yedekleme başarısız oldu: $errorMessage", Toast.LENGTH_LONG).show()
+                Log.e("PasswordSettings", "Kurtarılamayan Drive hatası", e)
+                finish()
+            }
+        }
     }
 
     private fun performAutomaticBackup(credential: SignInCredential) {
         lifecycleScope.launch(Dispatchers.IO) {
-            val account = Account(credential.id, "com.google")
-            val googleAccountCredential = GoogleAccountCredential.usingOAuth2(
-                this@PasswordSettingsActivity,
-                Collections.singleton("https://www.googleapis.com/auth/drive.appdata")
-            ).setSelectedAccount(account)
-
-            val googleDriveManager = GoogleDriveManager(googleAccountCredential)
-
             try {
+                val account = Account(credential.id, "com.google")
+                val googleAccountCredential = GoogleAccountCredential.usingOAuth2(
+                    this@PasswordSettingsActivity,
+                    Collections.singleton("https://www.googleapis.com/auth/drive.appdata")
+                ).setSelectedAccount(account)
+
+                val googleDriveManager = GoogleDriveManager(googleAccountCredential)
                 val notesToBackup = noteDao.getAllNotes().first()
                 proceedWithFullBackup(googleDriveManager, notesToBackup)
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@PasswordSettingsActivity, "Yedekleme sırasında hata: ${e.message}", Toast.LENGTH_LONG).show()
-                    finish()
-                }
+                // GÜNCELLEME: Tüm hatalar artık merkezi hata yöneticisine yönlendiriliyor.
+                handleDriveError(e)
             }
         }
     }
@@ -257,22 +258,25 @@ class PasswordSettingsActivity : AppCompatActivity() {
                             FileOutputStream(tempFile).use { outputStream ->
                                 inputStream.copyTo(outputStream)
                             }
-                            when(val result = googleDriveManager.uploadMediaFile(tempFile, "image/jpeg")) {
+                            // GÜNCELLEME: Hata durumunda exception fırlat
+                            when (val result = googleDriveManager.uploadMediaFile(tempFile, "image/jpeg")) {
                                 is DriveResult.Success -> imageDriveId = result.data
-                                is DriveResult.Error -> Log.e("PasswordSettingsBackup", "Görsel yüklenemedi: ${result.exception.message}")
+                                is DriveResult.Error -> throw result.exception
                             }
                         }
                     } catch (e: Exception) {
                         Log.e("PasswordSettingsBackup", "Görsel işlenirken hata oluştu: $path", e)
+                        throw e
                     }
                 }
                 var audioDriveId: String? = null
                 content.audioFilePath?.let { path ->
                     val audioFile = File(path)
                     if (audioFile.exists()) {
+                        // GÜNCELLEME: Hata durumunda exception fırlat
                         when (val result = googleDriveManager.uploadMediaFile(audioFile, "audio/mp4")) {
                             is DriveResult.Success -> audioDriveId = result.data
-                            is DriveResult.Error -> Log.e("PasswordSettingsBackup", "Ses dosyası yüklenemedi: ${result.exception.message}")
+                            is DriveResult.Error -> throw result.exception
                         }
                     }
                 }
@@ -296,6 +300,7 @@ class PasswordSettingsActivity : AppCompatActivity() {
             )
             val backupJson = gson.toJson(backupData)
 
+            // GÜNCELLEME: Hata durumunda exception fırlat
             when (val result = googleDriveManager.uploadJsonBackup("snapnote_backup.json", backupJson)) {
                 is DriveResult.Success -> {
                     withContext(Dispatchers.Main) {
@@ -305,23 +310,41 @@ class PasswordSettingsActivity : AppCompatActivity() {
                         finish()
                     }
                 }
-                is DriveResult.Error -> {
-                    withContext(Dispatchers.Main) {
-                        dismissProgressDialog()
-                        Toast.makeText(this@PasswordSettingsActivity, "Parola değiştirildi ancak Drive yedeği güncellenemedi.", Toast.LENGTH_LONG).show()
-                        finish()
-                    }
-                }
+                is DriveResult.Error -> throw result.exception
             }
         } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                dismissProgressDialog()
-                Toast.makeText(this@PasswordSettingsActivity, "Yedekleme başarısız: ${e.message}", Toast.LENGTH_LONG).show()
-                finish()
-            }
+            // GÜNCELLEME: Tüm hatalar artık merkezi hata yöneticisine yönlendiriliyor.
+            handleDriveError(e)
         } finally {
             tempDir.deleteRecursively()
         }
+    }
+
+    private fun showProgressDialog() {
+        val builder = AlertDialog.Builder(this)
+        val inflater = this.layoutInflater
+        val dialogView = inflater.inflate(R.layout.dialog_progress, null)
+
+        progressBar = dialogView.findViewById(R.id.progress_bar)
+        progressTitle = dialogView.findViewById(R.id.tv_progress_title)
+        progressPercentage = dialogView.findViewById(R.id.tv_progress_percentage)
+
+        progressTitle?.text = getString(R.string.backup_update_in_progress)
+
+        builder.setView(dialogView)
+        builder.setCancelable(false)
+        progressDialog = builder.create()
+        progressDialog?.show()
+    }
+
+    private fun updateProgress(progress: Int) {
+        progressBar?.progress = progress
+        progressPercentage?.text = "$progress%"
+    }
+
+    private fun dismissProgressDialog() {
+        progressDialog?.dismiss()
+        progressDialog = null
     }
 
     private fun showSecurityInfoDialog() {

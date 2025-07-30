@@ -296,7 +296,8 @@
     <string name="data_management_summary">Yedekleme, geri yükleme ve hesap silme işlemlerini yönetin.</string>
     <string name="about_category_title">Hakkında</string>
     <string name="local_backup_summary">Cihaz depolaması</string>
-
-
+    <string name="an_unknown_error_occurred">Bilinmeyen bir hata oluştu</string>
+    <string name="operation_failed_with_error">İşlem başarısız oldu: %s</string>
+    <string name="logged_in_account_label">Oturum Açılan Hesap</string>
 
 </resources>
