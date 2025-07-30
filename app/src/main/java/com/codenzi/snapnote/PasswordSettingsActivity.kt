@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
-import android.view.View
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -15,9 +14,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
 import com.codenzi.snapnote.databinding.ActivityPasswordSettingsBinding
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.auth.api.identity.SignInCredential
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Scope
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
@@ -144,27 +142,26 @@ class PasswordSettingsActivity : AppCompatActivity() {
     }
 
     private fun triggerAutomaticBackup() {
-        val lastSignedInAccount = GoogleSignIn.getLastSignedInAccount(this)
-        val driveScope = Scope("https://www.googleapis.com/auth/drive.appdata")
+        val signInClient = Identity.getSignInClient(this)
+        val request = com.google.android.gms.auth.api.identity.GetSignInIntentRequest.builder()
+            .setServerClientId(getString(R.string.default_web_client_id))
+            .build()
 
-        if (lastSignedInAccount != null && lastSignedInAccount.grantedScopes.contains(driveScope)) {
-            performAutomaticBackup(lastSignedInAccount)
-        } else {
-            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestEmail()
-                .requestScopes(driveScope)
-                .build()
-            val googleSignInClient = GoogleSignIn.getClient(this, gso)
-            googleSignInClient.signOut().addOnCompleteListener {
-                googleSignInLauncher.launch(googleSignInClient.signInIntent)
+        signInClient.getSignInIntent(request)
+            .addOnSuccessListener { result ->
+                googleSignInLauncher.launch(result.intentSender.createIntent())
             }
-        }
+            .addOnFailureListener { e ->
+                Log.e("PasswordSettings", "Sign-in failed", e)
+                Toast.makeText(this, "Google ile oturum açılamadı. Parola değişikliği yedeklenemedi.", Toast.LENGTH_LONG).show()
+            }
     }
+
 
     private fun handleSignInResult(data: Intent?) {
         try {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
-            performAutomaticBackup(task.getResult(ApiException::class.java)!!)
+            val credential = Identity.getSignInClient(this).getSignInCredentialFromIntent(data)
+            performAutomaticBackup(credential)
         } catch (e: ApiException) {
             Log.w("PasswordSettings", "signInResult:failed code=" + e.statusCode, e)
             Toast.makeText(this, "Google ile oturum açılamadı. Parola değişikliği yedeklenemedi.", Toast.LENGTH_LONG).show()
@@ -199,13 +196,13 @@ class PasswordSettingsActivity : AppCompatActivity() {
         progressDialog = null
     }
 
-    private fun performAutomaticBackup(account: GoogleSignInAccount) {
+    private fun performAutomaticBackup(credential: SignInCredential) {
         lifecycleScope.launch(Dispatchers.IO) {
-            val credential = GoogleAccountCredential.usingOAuth2(
+            val googleAccountCredential = GoogleAccountCredential.usingOAuth2(
                 this@PasswordSettingsActivity,
                 listOf("https://www.googleapis.com/auth/drive.appdata")
-            ).setSelectedAccount(account.account)
-            val googleDriveManager = GoogleDriveManager(credential)
+            ).setAccount(credential.googleIdToken?.let { com.google.android.gms.auth.api.signin.GoogleSignInAccount.createDefault() })
+            val googleDriveManager = GoogleDriveManager(googleAccountCredential)
 
             try {
                 val notesToBackup = noteDao.getAllNotes().first()
