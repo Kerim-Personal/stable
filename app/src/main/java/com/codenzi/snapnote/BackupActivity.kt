@@ -16,7 +16,6 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
 import com.codenzi.snapnote.databinding.ActivityBackupBinding
@@ -161,9 +160,11 @@ class BackupActivity : AppCompatActivity() {
                 content.imagePath?.let { path ->
                     try {
                         val imageUri = Uri.parse(path)
+                        // Dosya adını URI'dan alıyoruz veya yeni bir tane oluşturuyoruz
                         val fileName = imageUri.lastPathSegment ?: "image_${System.currentTimeMillis()}.jpg"
                         val destFile = File(tempDir, fileName)
 
+                        // Güvenli yöntem: URI'yi ContentResolver ile açıp içeriği kopyalıyoruz
                         contentResolver.openInputStream(imageUri)?.use { inputStream ->
                             FileOutputStream(destFile).use { outputStream ->
                                 inputStream.copyTo(outputStream)
@@ -349,10 +350,7 @@ class BackupActivity : AppCompatActivity() {
                         val permanentDir = getExternalFilesDir("Images")!!
                         val permanentFile = File(permanentDir, fileName)
                         sourceFile.copyTo(permanentFile, overwrite = true)
-
-                        val authority = "${this@BackupActivity.packageName}.provider"
-                        val imageUri = FileProvider.getUriForFile(this@BackupActivity, authority, permanentFile)
-                        newImagePath = imageUri.toString()
+                        newImagePath = permanentFile.absolutePath
                     }
                 }
                 var newAudioPath: String? = null
@@ -362,11 +360,7 @@ class BackupActivity : AppCompatActivity() {
                         val permanentDir = getExternalFilesDir("AudioNotes")!!
                         val permanentFile = File(permanentDir, fileName)
                         sourceFile.copyTo(permanentFile, overwrite = true)
-
-                        val authority = "${this@BackupActivity.packageName}.provider"
-                        val audioUri = FileProvider.getUriForFile(this@BackupActivity, authority, permanentFile)
-                        newAudioPath = audioUri.toString()
-
+                        newAudioPath = permanentFile.absolutePath
                     }
                 }
                 val newContent = content.copy(imagePath = newImagePath, audioFilePath = newAudioPath)
@@ -387,6 +381,7 @@ class BackupActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 dismissProgressDialog()
                 Toast.makeText(this@BackupActivity, getString(R.string.import_successful), Toast.LENGTH_LONG).show()
+                // Uygulamanın yeniden başlatılması gerekebilir
                 val intent = Intent(this@BackupActivity, MainActivity::class.java)
                 intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
                 startActivity(intent)
@@ -867,9 +862,7 @@ class BackupActivity : AppCompatActivity() {
                 content.imagePath?.let { driveId ->
                     val imageFile = createImageFile()
                     if (googleDriveManager.downloadMediaFile(driveId, imageFile)) {
-                        val authority = "${this@BackupActivity.packageName}.provider"
-                        val imageUri = FileProvider.getUriForFile(this@BackupActivity, authority, imageFile)
-                        localImagePath = imageUri.toString()
+                        localImagePath = imageFile.absolutePath
                         tempFiles.add(imageFile)
                     } else {
                         isDownloadSuccessful = false
@@ -879,9 +872,7 @@ class BackupActivity : AppCompatActivity() {
                 content.audioFilePath?.let { driveId ->
                     val audioFile = createAudioFile()
                     if (googleDriveManager.downloadMediaFile(driveId, audioFile)) {
-                        val authority = "${this@BackupActivity.packageName}.provider"
-                        val audioUri = FileProvider.getUriForFile(this@BackupActivity, authority, audioFile)
-                        localAudioPath = audioUri.toString()
+                        localAudioPath = audioFile.absolutePath
                         tempFiles.add(audioFile)
                     } else {
                         isDownloadSuccessful = false
