@@ -1,5 +1,6 @@
 # Bu dosya, getDefaultProguardFile('proguard-android-optimize.txt') tarafından
 # sağlanan varsayılan kurallara ek olarak kullanılır.
+
 #------------- Kotlin Coroutines Kuralları -------------
 # Coroutines'in dahili hata ayıklama mekanizmalarının çalışmasını sağlar.
 -keep class kotlinx.coroutines.debug.internal.DebugProbesKt {
@@ -9,27 +10,12 @@
 
 #------------- Hilt Kuralları -------------
 # Hilt tarafından oluşturulan ve kullanılan sınıfların korunmasını sağlar.
-# Hilt'in Gradle eklentisi genellikle bu kuralları otomatik olarak ekler,
-# ancak manuel olarak eklemek güvenliği artırır.
--keep class * implements dagger.hilt.internal.GeneratedComponent {
-    <methods>;
-}
--keep class * implements dagger.hilt.internal.GeneratedEntryPoint {
-    <methods>;
-}
--keep class * implements dagger.hilt.internal.GeneratedComponentManager {
-    <methods>;
-}
--keep class * implements dagger.hilt.internal.GeneratedComponentManagerHolder {
-    <methods>;
-}
--keep class dagger.hilt.internal.processedroots.* {
-    <methods>;
-}
--keep class * extends androidx.lifecycle.ViewModel {
-    <init>(...);
-}
-# @AndroidEntryPoint, @HiltViewModel, @HiltAndroidApp ile işaretlenmiş sınıfları koru.
+-keep class * implements dagger.hilt.internal.GeneratedComponent { <methods>; }
+-keep class * implements dagger.hilt.internal.GeneratedEntryPoint { <methods>; }
+-keep class * implements dagger.hilt.internal.GeneratedComponentManager { <methods>; }
+-keep class * implements dagger.hilt.internal.GeneratedComponentManagerHolder { <methods>; }
+-keep class dagger.hilt.internal.processedroots.* { <methods>; }
+-keep class * extends androidx.lifecycle.ViewModel { <init>(...); }
 -keepclassmembers class ** {
     @dagger.hilt.android.AndroidEntryPoint <fields>;
     @dagger.hilt.android.HiltAndroidApp <fields>;
@@ -43,40 +29,37 @@
 
 #------------- Room Kuralları -------------
 # Room veritabanı varlık (entity) sınıflarını korur.
-# Bu sınıfların alan adları veritabanı sütun adlarıyla eşleştiği için
-# yeniden adlandırılmamalıdır.
--keep class androidx.room.** { *;
-}
--keepclassmembers class * {
-    @androidx.room.Entity *;
-}
--keepclassmembers class * {
-    @androidx.room.Dao *;
-}
--keepclassmembers class * {
-    @androidx.room.Database *;
-}
--keepclassmembers class * {
-    @androidx.room.TypeConverter *;
-}
--keepclassmembers class * {
-    @androidx.room.PrimaryKey *;
-}
--keepclassmembers class * {
-    @androidx.room.Embedded *;
-}
--keepclassmembers class * {
-    @androidx.room.Relation *;
+-keep class androidx.room.** { *; }
+-keepclassmembers class * { @androidx.room.Entity *; }
+-keepclassmembers class * { @androidx.room.Dao *; }
+-keepclassmembers class * { @androidx.room.Database *; }
+-keepclassmembers class * { @androidx.room.TypeConverter *; }
+-keepclassmembers class * { @androidx.room.PrimaryKey *; }
+-keepclassmembers class * { @androidx.room.Embedded *; }
+-keepclassmembers class * { @androidx.room.Relation *; }
+
+#------------- Google Play Hizmetleri ve API Kuralları -------------
+# YENİ: Credential Manager API (Yeni Google Sign-In) için gerekli kural.
+-keep class com.google.android.gms.auth.api.identity.** { *; }
+-dontwarn com.google.android.gms.auth.api.identity.**
+
+# Google API Client ve Drive API için gerekli kurallar (Mevcut hali doğruydu, korundu)
+-keep class com.google.api.client.** { *; }
+-dontwarn com.google.api.client.**
+-keepclassmembers class * extends com.google.api.client.util.GenericData {
+    public <init>();
 }
 
-#------------- Veri/Model Sınıfları (Data/Model Classes) -------------
-# API yanıtları veya veritabanı modelleri gibi serileştirme/çözme işlemi
-# gören veri sınıflarını korur.
-# Paket adını kendi projenize göre güncelleyin.
--keep class com.codenzi.snapnote.data.model.** { *; }
--keepclassmembers class com.codenzi.snapnote.data.model.** {
-    <fields>;
-    <methods>;
+#------------- Gson (JSON işleme) için gerekli kurallar -------------
+# Yedekleme ve geri yüklemede kullanılan veri sınıflarını korur.
+-keep class com.codenzi.snapnote.BackupData { *; }
+-keep class com.codenzi.snapnote.AppSettings { *; }
+-keep class com.codenzi.snapnote.NoteContent { *; }
+-keep class com.codenzi.snapnote.ChecklistItem { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
+-keepclassmembers,allowshrinking class * {
+    @com.google.gson.annotations.SerializedName <fields>;
 }
 
 #------------- Genel Kurallar -------------
@@ -91,8 +74,10 @@
     public static ** valueOf(java.lang.String);
 }
 
-# Please add these rules to your existing keep rules in order to suppress warnings.
-# This is generated automatically by the Android Gradle plugin.
+#------------- Gradle Tarafından Oluşturulan Uyarı Bastırmaları -------------
+# Bu kurallar projenizde bir sorun olduğu anlamına gelmez, sadece ProGuard'ın
+# bulamadığı ancak çalışma zamanında sorun çıkarmayan sınıflar için uyarıları gizler.
+# (Mevcut hali doğruydu, korundu)
 -dontwarn javax.naming.InvalidNameException
 -dontwarn javax.naming.NamingException
 -dontwarn javax.naming.directory.Attribute
@@ -113,26 +98,3 @@
 -dontwarn org.ietf.jgss.GSSName
 -dontwarn org.ietf.jgss.Oid
 -dontwarn org.joda.time.Instant
-
-# Google Sign-In için gerekli kurallar
--keep class com.google.android.gms.auth.** { *; }
--dontwarn com.google.android.gms.auth.**
-
-# Google API Client ve Drive API için gerekli kurallar
--keep class com.google.api.client.** { *; }
--dontwarn com.google.api.client.**
--keepclassmembers class * extends com.google.api.client.util.GenericData {
-    public <init>();
-}
-
-# Gson (JSON işleme) için gerekli kurallar
-# Yedekleme ve geri yüklemede kullanılan veri sınıflarını korur
--keep class com.codenzi.snapnote.BackupData { *; }
--keep class com.codenzi.snapnote.AppSettings { *; }
--keep class com.codenzi.snapnote.NoteContent { *; }
--keep class com.codenzi.snapnote.ChecklistItem { *; }
--keepattributes Signature
--keepattributes *Annotation*
--keepclassmembers,allowshrinking class * {
-    @com.google.gson.annotations.SerializedName <fields>;
-}

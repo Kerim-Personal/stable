@@ -1,23 +1,26 @@
 package com.codenzi.snapnote
 
+import android.accounts.Account
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
 import com.codenzi.snapnote.databinding.ActivityPasswordSettingsBinding
+import com.google.android.gms.auth.api.identity.GetSignInIntentRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.auth.api.identity.SignInCredential
 import com.google.android.gms.common.api.ApiException
-import com.google.android.gms.common.api.Scope
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.gson.Gson
 import dagger.hilt.android.AndroidEntryPoint
@@ -27,6 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.util.Collections
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -43,7 +47,7 @@ class PasswordSettingsActivity : AppCompatActivity() {
     private var progressPercentage: TextView? = null
 
     private val googleSignInLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
+        ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             handleSignInResult(result.data)
@@ -143,20 +147,20 @@ class PasswordSettingsActivity : AppCompatActivity() {
 
     private fun triggerAutomaticBackup() {
         val signInClient = Identity.getSignInClient(this)
-        val request = com.google.android.gms.auth.api.identity.GetSignInIntentRequest.builder()
+        val request = GetSignInIntentRequest.builder()
             .setServerClientId(getString(R.string.default_web_client_id))
             .build()
 
         signInClient.getSignInIntent(request)
             .addOnSuccessListener { result ->
-                googleSignInLauncher.launch(result.intentSender.createIntent())
+                val intentSenderRequest = IntentSenderRequest.Builder(result.intentSender).build()
+                googleSignInLauncher.launch(intentSenderRequest)
             }
             .addOnFailureListener { e ->
                 Log.e("PasswordSettings", "Sign-in failed", e)
                 Toast.makeText(this, "Google ile oturum açılamadı. Parola değişikliği yedeklenemedi.", Toast.LENGTH_LONG).show()
             }
     }
-
 
     private fun handleSignInResult(data: Intent?) {
         try {
@@ -198,10 +202,12 @@ class PasswordSettingsActivity : AppCompatActivity() {
 
     private fun performAutomaticBackup(credential: SignInCredential) {
         lifecycleScope.launch(Dispatchers.IO) {
+            val account = Account(credential.id, "com.google")
             val googleAccountCredential = GoogleAccountCredential.usingOAuth2(
                 this@PasswordSettingsActivity,
-                listOf("https://www.googleapis.com/auth/drive.appdata")
-            ).setAccount(credential.googleIdToken?.let { com.google.android.gms.auth.api.signin.GoogleSignInAccount.createDefault() })
+                Collections.singleton("https://www.googleapis.com/auth/drive.appdata")
+            ).setSelectedAccount(account)
+
             val googleDriveManager = GoogleDriveManager(googleAccountCredential)
 
             try {
@@ -251,7 +257,6 @@ class PasswordSettingsActivity : AppCompatActivity() {
                             FileOutputStream(tempFile).use { outputStream ->
                                 inputStream.copyTo(outputStream)
                             }
-                            // DÜZELTME: DriveResult kontrolü eklendi
                             when(val result = googleDriveManager.uploadMediaFile(tempFile, "image/jpeg")) {
                                 is DriveResult.Success -> imageDriveId = result.data
                                 is DriveResult.Error -> Log.e("PasswordSettingsBackup", "Görsel yüklenemedi: ${result.exception.message}")
@@ -265,7 +270,6 @@ class PasswordSettingsActivity : AppCompatActivity() {
                 content.audioFilePath?.let { path ->
                     val audioFile = File(path)
                     if (audioFile.exists()) {
-                        // DÜZELTME: DriveResult kontrolü eklendi
                         when (val result = googleDriveManager.uploadMediaFile(audioFile, "audio/mp4")) {
                             is DriveResult.Success -> audioDriveId = result.data
                             is DriveResult.Error -> Log.e("PasswordSettingsBackup", "Ses dosyası yüklenemedi: ${result.exception.message}")
@@ -292,7 +296,6 @@ class PasswordSettingsActivity : AppCompatActivity() {
             )
             val backupJson = gson.toJson(backupData)
 
-            // DÜZELTME: DriveResult kontrolü eklendi
             when (val result = googleDriveManager.uploadJsonBackup("snapnote_backup.json", backupJson)) {
                 is DriveResult.Success -> {
                     withContext(Dispatchers.Main) {

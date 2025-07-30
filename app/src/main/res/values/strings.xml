@@ -296,6 +296,7 @@
     <string name="data_management_summary">Manage backup, restore, and account deletion operations.</string>
     <string name="about_category_title">About</string>
     <string name="local_backup_summary">Device storage</string>
+    <string name="default_web_client_id" translatable="false">1001429080679-1gi8k9jtdeot0kbmr9j176rr40iot5ug.apps.googleusercontent.com</string>
 
 
 </resources>

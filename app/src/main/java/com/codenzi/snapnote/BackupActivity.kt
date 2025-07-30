@@ -1,5 +1,6 @@
 package com.codenzi.snapnote
 
+import android.accounts.Account
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -13,17 +14,16 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
 import com.codenzi.snapnote.databinding.ActivityBackupBinding
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.auth.api.identity.GetSignInIntentRequest
+import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.ApiException
-import com.google.android.gms.common.api.Scope
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -31,7 +31,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
@@ -40,6 +39,7 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.text.SimpleDateFormat
+import java.util.Collections
 import java.util.Date
 import java.util.Locale
 import java.util.zip.ZipEntry
@@ -65,7 +65,7 @@ class BackupActivity : AppCompatActivity() {
     private var progressPercentage: TextView? = null
 
     private val googleSignInLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
+        ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             handleSignInResult(result.data)
@@ -411,51 +411,41 @@ class BackupActivity : AppCompatActivity() {
             .setTitle(getString(R.string.final_delete_confirmation_title))
             .setMessage(getString(R.string.final_delete_confirmation_message))
             .setPositiveButton(getString(R.string.final_delete_confirm_button)) { _, _ ->
-                val lastSignedInAccount = GoogleSignIn.getLastSignedInAccount(this)
-                if (lastSignedInAccount == null) {
-                    showProgressDialog(R.string.delete_in_progress)
-                    DataWipeManager.wipeAllData(this)
-                } else {
-                    requestedAction = Action.DELETE
-                    signInToGoogle()
-                }
+                requestedAction = Action.DELETE
+                signInToGoogle()
             }
             .setNegativeButton(getString(R.string.dialog_cancel), null)
             .show()
     }
 
     private fun signInToGoogle() {
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestEmail()
-            .requestScopes(Scope("https://www.googleapis.com/auth/drive.appdata"))
+        val signInClient = Identity.getSignInClient(this)
+        val request = GetSignInIntentRequest.builder()
+            .setServerClientId(getString(R.string.default_web_client_id))
             .build()
 
-        val googleSignInClient = GoogleSignIn.getClient(this, gso)
-        val lastSignedInAccount = GoogleSignIn.getLastSignedInAccount(this)
-
-        if (lastSignedInAccount != null && GoogleSignIn.hasPermissions(lastSignedInAccount, Scope("https://www.googleapis.com/auth/drive.appdata"))) {
-            val credential = GoogleAccountCredential.usingOAuth2(this, listOf("https://www.googleapis.com/auth/drive.appdata"))
-                .setSelectedAccount(lastSignedInAccount.account)
-            val googleDriveManager = GoogleDriveManager(credential)
-
-            when (requestedAction) {
-                Action.BACKUP -> backupNotes(googleDriveManager)
-                Action.RESTORE -> restoreNotes(googleDriveManager)
-                Action.DELETE -> performAccountDeletion(googleDriveManager)
-                else -> {}
+        signInClient.getSignInIntent(request)
+            .addOnSuccessListener { result ->
+                val intentSenderRequest = IntentSenderRequest.Builder(result.intentSender).build()
+                googleSignInLauncher.launch(intentSenderRequest)
             }
-        } else {
-            googleSignInLauncher.launch(googleSignInClient.signInIntent)
-        }
+            .addOnFailureListener { e ->
+                Log.e("BackupActivity", "Sign-in failed", e)
+                Toast.makeText(this, getString(R.string.sign_in_error_try_again), Toast.LENGTH_LONG).show()
+            }
     }
 
     private fun handleSignInResult(data: Intent?) {
         try {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
-            val account = task.getResult(ApiException::class.java)!!
-            val credential = GoogleAccountCredential.usingOAuth2(this, listOf("https://www.googleapis.com/auth/drive.appdata"))
-                .setSelectedAccount(account.account)
-            val googleDriveManager = GoogleDriveManager(credential)
+            val credential = Identity.getSignInClient(this).getSignInCredentialFromIntent(data)
+            val account = Account(credential.id, "com.google")
+
+            val googleAccountCredential =
+                GoogleAccountCredential.usingOAuth2(
+                    this, Collections.singleton("https://www.googleapis.com/auth/drive.appdata")
+                ).setSelectedAccount(account)
+
+            val googleDriveManager = GoogleDriveManager(googleAccountCredential)
 
             when (requestedAction) {
                 Action.BACKUP -> backupNotes(googleDriveManager)
@@ -478,10 +468,7 @@ class BackupActivity : AppCompatActivity() {
 
                 when (val deleteResult = googleDriveManager.deleteFile("snapnote_backup.json")) {
                     is DriveResult.Success -> {
-                        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build()
-                        val googleSignInClient = GoogleSignIn.getClient(this@BackupActivity, gso)
-                        googleSignInClient.revokeAccess().await()
-
+                        Identity.getSignInClient(this@BackupActivity).signOut()
                         withContext(Dispatchers.Main) {
                             if (!DataWipeManager.wipeAllData(this@BackupActivity)) {
                                 dismissProgressDialog()
