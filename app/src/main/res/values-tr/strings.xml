@@ -294,5 +294,9 @@
 
     <string name="reset_password_title">Yeni Şifre Belirle</string>
     <string name="data_management_summary">Yedekleme, geri yükleme ve hesap silme işlemlerini yönetin.</string>
+    <string name="about_category_title">Hakkında</string>
+    <string name="local_backup_summary">Cihaz depolaması</string>
+
+
 
 </resources>

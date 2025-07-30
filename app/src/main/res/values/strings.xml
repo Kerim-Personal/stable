@@ -294,4 +294,8 @@
 
     <string name="reset_password_title">Set New Password</string>
     <string name="data_management_summary">Manage backup, restore, and account deletion operations.</string>
+    <string name="about_category_title">About</string>
+    <string name="local_backup_summary">Device storage</string>
+
+
 </resources>
