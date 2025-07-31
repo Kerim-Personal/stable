@@ -88,18 +88,23 @@ class GoogleDriveManager(private val credential: GoogleAccountCredential) {
      */
     suspend fun uploadJsonBackup(fileName: String, content: String): DriveResult<String> = withContext(Dispatchers.IO) {
         try {
+            Log.d(TAG, "JSON yedekleme yükleme başlatılıyor: $fileName")
             val metadata = File().apply { name = fileName }
             val contentStream = ByteArrayContent(JSON_MIME_TYPE, content.toByteArray())
+            Log.d(TAG, "İçerik boyutu: ${content.toByteArray().size} byte")
 
             val existingFileResult = findFile(fileName)
             val fileId = if (existingFileResult is DriveResult.Success && existingFileResult.data != null) {
+                Log.d(TAG, "Mevcut dosya bulundu, güncelleniyor: ${existingFileResult.data.id}")
                 // Dosya var, güncelle
                 drive.files().update(existingFileResult.data.id, metadata, contentStream).execute().id
             } else {
+                Log.d(TAG, "Yeni dosya oluşturuluyor")
                 // Dosya yok, oluştur
                 metadata.parents = listOf(APPDATA_FOLDER)
                 drive.files().create(metadata, contentStream).setFields("id").execute().id
             }
+            Log.d(TAG, "JSON yedekleme başarıyla yüklendi: $fileId")
             DriveResult.Success(fileId)
         } catch (e: Exception) {
             Log.e(TAG, "JSON yedekleme yüklemesi başarısız oldu.", e)
@@ -154,12 +159,19 @@ class GoogleDriveManager(private val credential: GoogleAccountCredential) {
      */
     suspend fun uploadMediaFile(localFile: java.io.File, mimeType: String): DriveResult<String> = withContext(Dispatchers.IO) {
         try {
+            Log.d(TAG, "Medya dosyası yükleme başlatılıyor: ${localFile.name} (${localFile.length()} byte)")
+            if (!localFile.exists()) {
+                Log.e(TAG, "Yüklenecek dosya mevcut değil: ${localFile.absolutePath}")
+                return@withContext DriveResult.Error(IOException("File does not exist: ${localFile.absolutePath}"))
+            }
+            
             val metadata = File().apply {
                 name = localFile.name
                 parents = listOf(APPDATA_FOLDER)
             }
             val mediaContent = FileContent(mimeType, localFile)
             val file = drive.files().create(metadata, mediaContent).setFields("id").execute()
+            Log.d(TAG, "Medya dosyası başarıyla yüklendi: ${file.id}")
             DriveResult.Success(file.id)
         } catch (e: IOException) {
             Log.e(TAG, "Medya dosyası yüklenemedi: ${localFile.name}", e)

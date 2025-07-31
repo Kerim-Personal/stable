@@ -322,13 +322,22 @@ class BackupActivity : AppCompatActivity() {
             .setMessage(getString(R.string.import_password_protected_message))
             .setView(editText)
             .setPositiveButton(getString(R.string.confirm_button)) { _, _ ->
-                val enteredPassword = editText.text.toString()
-                if (PasswordManager.checkPassword(enteredPassword, backupData.salt!!, backupData.passwordHash!!)) {
-                    lifecycleScope.launch {
-                        proceedWithLocalRestore(backupData, tempDir)
+                val enteredPassword = editText.text.toString().trim()
+                if (enteredPassword.isEmpty()) {
+                    Toast.makeText(this, "Şifre boş olamaz", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                if (backupData.salt != null && backupData.passwordHash != null) {
+                    if (PasswordManager.checkPassword(enteredPassword, backupData.salt, backupData.passwordHash)) {
+                        lifecycleScope.launch {
+                            proceedWithLocalRestore(backupData, tempDir)
+                        }
+                    } else {
+                        Toast.makeText(this, getString(R.string.incorrect_password), Toast.LENGTH_SHORT).show()
+                        tempDir.deleteRecursively()
                     }
                 } else {
-                    Toast.makeText(this, getString(R.string.incorrect_password), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Yedek dosyasında şifre bilgileri eksik", Toast.LENGTH_SHORT).show()
                     tempDir.deleteRecursively()
                 }
             }
@@ -427,44 +436,97 @@ class BackupActivity : AppCompatActivity() {
     }
 
     private fun signInToGoogle() {
+        // Ağ bağlantısını kontrol et
+        if (!isNetworkAvailable()) {
+            Toast.makeText(this, "İnternet bağlantısı gerekli. Lütfen bağlantınızı kontrol edin.", Toast.LENGTH_LONG).show()
+            return
+        }
+        
         lifecycleScope.launch {
-            val signInClient = Identity.getSignInClient(this@BackupActivity)
-            val request = GetSignInIntentRequest.builder()
-                .setServerClientId(getString(R.string.your_web_client_id))
-                .build()
             try {
+                Log.d("BackupActivity", "Google Sign-In başlatılıyor...")
+                val signInClient = Identity.getSignInClient(this@BackupActivity)
+                val clientId = getString(R.string.your_web_client_id)
+                Log.d("BackupActivity", "Client ID: $clientId")
+                
+                val request = GetSignInIntentRequest.builder()
+                    .setServerClientId(clientId)
+                    .build()
+                
                 val result = signInClient.getSignInIntent(request).await()
+                Log.d("BackupActivity", "Sign-in intent alındı, launcher başlatılıyor...")
                 googleSignInLauncher.launch(IntentSenderRequest.Builder(result).build())
             } catch (e: Exception) {
-                Log.e("BackupActivity", "Sign-in failed", e)
-                Toast.makeText(this@BackupActivity, getString(R.string.sign_in_error_try_again), Toast.LENGTH_LONG).show()
+                Log.e("BackupActivity", "Google Sign-In başlatılırken hata oluştu", e)
+                val errorMessage = when {
+                    e.message?.contains("INVALID_REQUEST") == true -> 
+                        "OAuth yapılandırması geçersiz. Client ID'yi kontrol edin."
+                    e.message?.contains("NETWORK_ERROR") == true -> 
+                        "Ağ bağlantısı sorunu. İnternet bağlantınızı kontrol edin."
+                    e.message?.contains("SIGN_IN_FAILED") == true -> 
+                        "Google hesabı doğrulaması başarısız."
+                    else -> "Giriş hatası: ${e.message}"
+                }
+                Toast.makeText(this@BackupActivity, errorMessage, Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager = getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        val network = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET)
     }
 
     private fun handleSignInResult(data: Intent?) {
         lifecycleScope.launch {
             try {
+                Log.d("BackupActivity", "Sign-in sonucu işleniyor...")
                 val credential = Identity.getSignInClient(this@BackupActivity).getSignInCredentialFromIntent(data)
+                Log.d("BackupActivity", "Kimlik bilgileri alındı: ${credential.id}")
+                
                 val googleCredential = GoogleAccountCredential.usingOAuth2(
                     this@BackupActivity,
                     listOf("https://www.googleapis.com/auth/drive.appdata")
                 )
                 googleCredential.selectedAccountName = credential.id
+                
+                Log.d("BackupActivity", "GoogleDriveManager oluşturuluyor...")
                 val googleDriveManager = GoogleDriveManager(googleCredential)
 
                 when (requestedAction) {
-                    Action.BACKUP -> backupNotes(googleDriveManager)
-                    Action.RESTORE -> restoreNotes(googleDriveManager)
-                    Action.DELETE -> performAccountDeletion(googleDriveManager)
-                    else -> {}
+                    Action.BACKUP -> {
+                        Log.d("BackupActivity", "Yedekleme işlemi başlatılıyor...")
+                        backupNotes(googleDriveManager)
+                    }
+                    Action.RESTORE -> {
+                        Log.d("BackupActivity", "Geri yükleme işlemi başlatılıyor...")
+                        restoreNotes(googleDriveManager)
+                    }
+                    Action.DELETE -> {
+                        Log.d("BackupActivity", "Hesap silme işlemi başlatılıyor...")
+                        performAccountDeletion(googleDriveManager)
+                    }
+                    else -> {
+                        Log.w("BackupActivity", "Bilinmeyen eylem: $requestedAction")
+                    }
                 }
             } catch (e: ApiException) {
-                Log.w("BackupActivity", "signInResult:failed code=" + e.statusCode, e)
-                Toast.makeText(this@BackupActivity, getString(R.string.sign_in_error_try_again), Toast.LENGTH_LONG).show()
+                Log.w("BackupActivity", "Google Sign-In API hatası: kod=" + e.statusCode, e)
+                val errorMessage = when (e.statusCode) {
+                    12501 -> "Google Play Hizmetleri mevcut değil veya güncel değil."
+                    12502 -> "Geçersiz hesap seçimi."
+                    12500 -> "İç hata oluştu. Tekrar deneyin."
+                    else -> "Google Sign-In hatası (kod: ${e.statusCode})"
+                }
+                Toast.makeText(this@BackupActivity, errorMessage, Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
-                Log.e("BackupActivity", "handleSignInResult'ta genel hata", e)
-                Toast.makeText(this@BackupActivity, getString(R.string.an_unknown_error_occurred), Toast.LENGTH_LONG).show()
+                Log.e("BackupActivity", "Sign-in sonucu işlenirken beklenmeyen hata", e)
+                val errorMessage = "Beklenmeyen bir hata oluştu: ${e.message}"
+                Toast.makeText(this@BackupActivity, errorMessage, Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -504,6 +566,7 @@ class BackupActivity : AppCompatActivity() {
     private fun backupNotes(googleDriveManager: GoogleDriveManager) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                Log.d("BackupActivity", "Yerel notlar alınıyor...")
                 val localNotes = noteDao.getAllNotes().first()
 
                 if (localNotes.isEmpty()) {
@@ -513,9 +576,11 @@ class BackupActivity : AppCompatActivity() {
                     return@launch
                 }
 
+                Log.d("BackupActivity", "${localNotes.size} not bulundu, mevcut yedek kontrol ediliyor...")
                 when (val result = googleDriveManager.getBackupFiles()) {
                     is DriveResult.Success -> {
                         val existingBackup = result.data.firstOrNull()
+                        Log.d("BackupActivity", "Mevcut yedek durumu: ${if (existingBackup != null) "bulundu" else "bulunamadı"}")
                         withContext(Dispatchers.Main) {
                             if (existingBackup != null) {
                                 AlertDialog.Builder(this@BackupActivity)
@@ -536,11 +601,13 @@ class BackupActivity : AppCompatActivity() {
                         }
                     }
                     is DriveResult.Error -> {
-                        showError("Error during backup check", result.exception)
+                        Log.e("BackupActivity", "Mevcut yedekler kontrol edilirken hata", result.exception)
+                        showError("Yedek kontrol hatası", result.exception)
                     }
                 }
             } catch (e: Exception) {
-                showError("Error during backup check", e)
+                Log.e("BackupActivity", "Yedekleme başlatılırken hata", e)
+                showError("Yedekleme başlatma hatası", e)
             }
         }
     }
@@ -791,13 +858,21 @@ class BackupActivity : AppCompatActivity() {
             .setTitle(R.string.security_question_title)
             .setView(layout)
             .setPositiveButton(R.string.submit_button) { _, _ ->
-                val answer = answerInput.text.toString()
-                if (PasswordManager.checkPassword(answer, backupData.securitySalt!!, backupData.securityAnswerHash!!)) {
-                    lifecycleScope.launch(Dispatchers.IO) {
-                        proceedWithRestore(googleDriveManager, backupData)
+                val answer = answerInput.text.toString().trim()
+                if (answer.isEmpty()) {
+                    Toast.makeText(this, "Güvenlik cevabı boş olamaz", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                if (backupData.securitySalt != null && backupData.securityAnswerHash != null) {
+                    if (PasswordManager.checkPassword(answer, backupData.securitySalt, backupData.securityAnswerHash)) {
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            proceedWithRestore(googleDriveManager, backupData)
+                        }
+                    } else {
+                        Toast.makeText(this, R.string.incorrect_security_answer, Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                    Toast.makeText(this, R.string.incorrect_security_answer, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Yedek dosyasında güvenlik bilgileri eksik", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton(R.string.dialog_cancel, null)
@@ -832,13 +907,22 @@ class BackupActivity : AppCompatActivity() {
             .setTitle(R.string.security_question_title)
             .setView(layout)
             .setPositiveButton(R.string.submit_button) { _, _ ->
-                val answer = answerInput.text.toString()
-                if (PasswordManager.checkPassword(answer, backupData.securitySalt!!, backupData.securityAnswerHash!!)) {
-                    lifecycleScope.launch {
-                        proceedWithLocalRestore(backupData, tempDir)
+                val answer = answerInput.text.toString().trim()
+                if (answer.isEmpty()) {
+                    Toast.makeText(this, "Güvenlik cevabı boş olamaz", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                if (backupData.securitySalt != null && backupData.securityAnswerHash != null) {
+                    if (PasswordManager.checkPassword(answer, backupData.securitySalt, backupData.securityAnswerHash)) {
+                        lifecycleScope.launch {
+                            proceedWithLocalRestore(backupData, tempDir)
+                        }
+                    } else {
+                        Toast.makeText(this, R.string.incorrect_security_answer, Toast.LENGTH_SHORT).show()
+                        tempDir.deleteRecursively()
                     }
                 } else {
-                    Toast.makeText(this, R.string.incorrect_security_answer, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Yedek dosyasında güvenlik bilgileri eksik", Toast.LENGTH_SHORT).show()
                     tempDir.deleteRecursively()
                 }
             }
@@ -872,7 +956,11 @@ class BackupActivity : AppCompatActivity() {
             .setMessage(getString(R.string.backup_password_protected_message))
             .setView(editText)
             .setPositiveButton(getString(R.string.confirm_button)) { _, _ ->
-                val enteredPassword = editText.text.toString()
+                val enteredPassword = editText.text.toString().trim()
+                if (enteredPassword.isEmpty()) {
+                    Toast.makeText(this, "Şifre boş olamaz", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
                 if (backupData.passwordHash != null && backupData.salt != null) {
                     if (PasswordManager.checkPassword(enteredPassword, backupData.salt, backupData.passwordHash)) {
                         lifecycleScope.launch(Dispatchers.IO) {
@@ -881,6 +969,8 @@ class BackupActivity : AppCompatActivity() {
                     } else {
                         Toast.makeText(this, getString(R.string.incorrect_password), Toast.LENGTH_SHORT).show()
                     }
+                } else {
+                    Toast.makeText(this, "Yedek dosyasında şifre bilgileri eksik", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton(getString(R.string.dialog_cancel), null)
