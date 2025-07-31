@@ -608,12 +608,12 @@ class BackupActivity : AppCompatActivity() {
                     }
                     is DriveResult.Error -> {
                         Log.e("BackupActivity", "Mevcut yedekler kontrol edilirken hata", result.exception)
-                        showError("Yedek kontrol hatası", result.exception)
+                        showBackupError(result.exception)
                     }
                 }
             } catch (e: Exception) {
                 Log.e("BackupActivity", "Yedekleme başlatılırken hata", e)
-                showError("Yedekleme başlatma hatası", e)
+                showBackupError(e)
             }
         }
     }
@@ -766,7 +766,7 @@ class BackupActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 dismissProgressDialog()
             }
-            showError("Backup failed", e)
+            showBackupError(e)
         } finally {
             tempDir.deleteRecursively()
         }
@@ -836,7 +836,7 @@ class BackupActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     dismissProgressDialog()
                 }
-                showError(getString(R.string.restore_failed), e)
+                showRestoreError(e)
             }
         }
     }
@@ -1134,7 +1134,7 @@ class BackupActivity : AppCompatActivity() {
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
                 dismissProgressDialog()
-                showError(getString(R.string.restore_failed_with_error, e.message), e)
+                showRestoreError(e)
             }
         }
     }
@@ -1157,13 +1157,25 @@ class BackupActivity : AppCompatActivity() {
 
     private suspend fun showError(message: String, e: Exception) {
         withContext(Dispatchers.Main) {
-            val finalMessage = if (e.message != null) {
-                getString(R.string.restore_failed_with_error, e.message)
-            } else {
-                message
-            }
+            val finalMessage = "$message: ${e.message ?: "Bilinmeyen hata"}"
             Toast.makeText(this@BackupActivity, finalMessage, Toast.LENGTH_LONG).show()
             Log.e("BackupActivity", message, e)
+        }
+    }
+    
+    private suspend fun showBackupError(e: Exception) {
+        withContext(Dispatchers.Main) {
+            val finalMessage = getString(R.string.backup_failed, e.message ?: "Bilinmeyen hata")
+            Toast.makeText(this@BackupActivity, finalMessage, Toast.LENGTH_LONG).show()
+            Log.e("BackupActivity", "Backup failed", e)
+        }
+    }
+    
+    private suspend fun showRestoreError(e: Exception) {
+        withContext(Dispatchers.Main) {
+            val finalMessage = getString(R.string.restore_failed_with_error, e.message ?: "Bilinmeyen hata")
+            Toast.makeText(this@BackupActivity, finalMessage, Toast.LENGTH_LONG).show()
+            Log.e("BackupActivity", "Restore failed", e)
         }
     }
 
