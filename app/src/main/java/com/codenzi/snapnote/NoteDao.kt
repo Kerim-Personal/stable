@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
@@ -58,11 +59,18 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE isDeleted = 1 AND deletedAt IS NOT NULL AND deletedAt < :thirtyDaysAgoTimestamp")
     suspend fun getOldTrashedNotes(thirtyDaysAgoTimestamp: Long): List<Note>
 
-    // YENİ: Geri yükleme işlemi için tüm notları temizler
+    // YENİ: Geri yükleme işlemi için tüm notları temizler ve yenilerini ekler (transaction içinde)
     @Query("DELETE FROM notes")
     suspend fun deleteAllNotes()
 
     // YENİ: Geri yüklenen notları veritabanına toplu halde ekler
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(notes: List<Note>)
+
+    // YENİ: Transaction ile güvenli geri yükleme işlemi
+    @Transaction
+    suspend fun replaceAllNotesTransaction(notes: List<Note>) {
+        deleteAllNotes()
+        insertAll(notes)
+    }
 }

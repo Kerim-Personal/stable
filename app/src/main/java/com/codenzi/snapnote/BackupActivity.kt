@@ -267,7 +267,17 @@ class BackupActivity : AppCompatActivity() {
             if (!jsonFile.exists()) {
                 throw IOException("backup.json not found in ZIP file.")
             }
-            val backupData: BackupData = gson.fromJson(jsonFile.readText(), object : TypeToken<BackupData>() {}.type)
+            
+            val backupData: BackupData = try {
+                gson.fromJson(jsonFile.readText(), object : TypeToken<BackupData>() {}.type)
+            } catch (e: Exception) {
+                throw IOException("Backup file is corrupted or has invalid format: ${e.message}", e)
+            }
+            
+            // Validate backup content
+            if (backupData.notes.isEmpty()) {
+                throw IOException("Backup file contains no notes to restore.")
+            }
 
             withContext(Dispatchers.Main) {
                 if (backupData.passwordHash != null) {
@@ -336,8 +346,6 @@ class BackupActivity : AppCompatActivity() {
         }
 
         try {
-            noteDao.deleteAllNotes()
-
             val restoredNotes = backupData.notes.map { note ->
                 val content = gson.fromJson(note.content, NoteContent::class.java)
                 var newImagePath: String? = null
@@ -364,7 +372,8 @@ class BackupActivity : AppCompatActivity() {
                 note.copy(content = gson.toJson(newContent))
             }
 
-            noteDao.insertAll(restoredNotes)
+            // Transaction ile güvenli veritabanı güncelleme
+            noteDao.replaceAllNotesTransaction(restoredNotes)
 
             val prefsEditor = PreferenceManager.getDefaultSharedPreferences(this).edit()
             prefsEditor.putString("theme_selection", backupData.settings.themeSelection)
@@ -574,12 +583,20 @@ class BackupActivity : AppCompatActivity() {
                                 inputStream.copyTo(outputStream)
                             }
                             when (val result = googleDriveManager.uploadMediaFile(tempFile, "image/jpeg")) {
-                                is DriveResult.Success -> imageDriveId = result.data
-                                is DriveResult.Error -> Log.e("BackupActivity", "Görsel yüklenemedi: ${result.exception.message}")
+                                is DriveResult.Success -> {
+                                    imageDriveId = result.data
+                                    Log.d("BackupActivity", "Görsel başarıyla yüklendi: $imageDriveId")
+                                }
+                                is DriveResult.Error -> {
+                                    Log.e("BackupActivity", "Görsel yüklenemedi: ${result.exception.message}", result.exception)
+                                    throw IOException("Görsel yüklenirken hata oluştu: ${result.exception.message}", result.exception)
+                                }
                             }
+                            tempFile.delete() // Geçici dosyayı temizle
                         }
                     } catch (e: Exception) {
                         Log.e("BackupActivity", "Görsel işlenirken hata oluştu: $path", e)
+                        throw IOException("Görsel işlenirken hata oluştu: ${e.message}", e)
                     }
                 }
 
@@ -588,9 +605,18 @@ class BackupActivity : AppCompatActivity() {
                     val audioFile = File(path)
                     if (audioFile.exists()) {
                         when (val result = googleDriveManager.uploadMediaFile(audioFile, "audio/mp4")) {
-                            is DriveResult.Success -> audioDriveId = result.data
-                            is DriveResult.Error -> Log.e("BackupActivity", "Ses dosyası yüklenemedi: ${result.exception.message}")
+                            is DriveResult.Success -> {
+                                audioDriveId = result.data
+                                Log.d("BackupActivity", "Ses dosyası başarıyla yüklendi: $audioDriveId")
+                            }
+                            is DriveResult.Error -> {
+                                Log.e("BackupActivity", "Ses dosyası yüklenemedi: ${result.exception.message}", result.exception)
+                                throw IOException("Ses dosyası yüklenirken hata oluştu: ${result.exception.message}", result.exception)
+                            }
                         }
+                    } else {
+                        Log.w("BackupActivity", "Ses dosyası bulunamadı: $path")
+                        // Dosya yoksa null bırak, yedekleme devam etsin
                     }
                 }
                 val newContent = content.copy(imagePath = imageDriveId, audioFilePath = audioDriveId)
@@ -666,8 +692,17 @@ class BackupActivity : AppCompatActivity() {
                                     }
                                     return@launch
                                 }
-                                val type = object : TypeToken<BackupData>() {}.type
-                                val backupData: BackupData = gson.fromJson(jsonContent, type)
+                                val backupData: BackupData = try {
+                                    val type = object : TypeToken<BackupData>() {}.type
+                                    gson.fromJson(jsonContent, type)
+                                } catch (e: Exception) {
+                                    withContext(Dispatchers.Main) {
+                                        dismissProgressDialog()
+                                        Toast.makeText(this@BackupActivity, "Yedek dosyası bozuk veya geçersiz format.", Toast.LENGTH_LONG).show()
+                                    }
+                                    Log.e("BackupActivity", "Yedek dosyası parse edilemedi", e)
+                                    return@launch
+                                }
                                 if (backupData.notes.isEmpty()) {
                                     withContext(Dispatchers.Main) {
                                         dismissProgressDialog()
@@ -866,6 +901,7 @@ class BackupActivity : AppCompatActivity() {
             val totalSteps = notesFromBackup.size + 1
 
             var isDownloadSuccessful = true
+            val failedDownloads = mutableListOf<String>()
 
             notesFromBackup.forEachIndexed { index, note ->
                 if (!isDownloadSuccessful) return@forEachIndexed
@@ -874,31 +910,53 @@ class BackupActivity : AppCompatActivity() {
                 var localImagePath: String? = null
                 content.imagePath?.let { driveId ->
                     val imageFile = createImageFile()
-                    val outputStream = FileOutputStream(imageFile)
-                    when(val result = googleDriveManager.downloadMediaFile(driveId, outputStream)) {
-                        is DriveResult.Success -> {
-                            localImagePath = imageFile.absolutePath
-                            tempFiles.add(imageFile)
+                    try {
+                        FileOutputStream(imageFile).use { outputStream ->
+                            when(val result = googleDriveManager.downloadMediaFile(driveId, outputStream)) {
+                                is DriveResult.Success -> {
+                                    localImagePath = imageFile.absolutePath
+                                    tempFiles.add(imageFile)
+                                    Log.d("BackupActivity", "Görsel başarıyla indirildi: $driveId")
+                                }
+                                is DriveResult.Error -> {
+                                    isDownloadSuccessful = false
+                                    failedDownloads.add("Görsel dosyası (ID: $driveId)")
+                                    imageFile.delete()
+                                    Log.e("BackupActivity", "Görsel indirilemedi: $driveId", result.exception)
+                                }
+                            }
                         }
-                        is DriveResult.Error -> {
-                            isDownloadSuccessful = false
-                            imageFile.delete()
-                        }
+                    } catch (e: Exception) {
+                        isDownloadSuccessful = false
+                        failedDownloads.add("Görsel dosyası (ID: $driveId)")
+                        imageFile.delete()
+                        Log.e("BackupActivity", "Görsel dosyası oluşturulurken hata: $driveId", e)
                     }
                 }
                 var localAudioPath: String? = null
                 content.audioFilePath?.let { driveId ->
                     val audioFile = createAudioFile()
-                    val outputStream = FileOutputStream(audioFile)
-                    when(val result = googleDriveManager.downloadMediaFile(driveId, outputStream)) {
-                        is DriveResult.Success -> {
-                            localAudioPath = audioFile.absolutePath
-                            tempFiles.add(audioFile)
+                    try {
+                        FileOutputStream(audioFile).use { outputStream ->
+                            when(val result = googleDriveManager.downloadMediaFile(driveId, outputStream)) {
+                                is DriveResult.Success -> {
+                                    localAudioPath = audioFile.absolutePath
+                                    tempFiles.add(audioFile)
+                                    Log.d("BackupActivity", "Ses dosyası başarıyla indirildi: $driveId")
+                                }
+                                is DriveResult.Error -> {
+                                    isDownloadSuccessful = false
+                                    failedDownloads.add("Ses dosyası (ID: $driveId)")
+                                    audioFile.delete()
+                                    Log.e("BackupActivity", "Ses dosyası indirilemedi: $driveId", result.exception)
+                                }
+                            }
                         }
-                        is DriveResult.Error -> {
-                            isDownloadSuccessful = false
-                            audioFile.delete()
-                        }
+                    } catch (e: Exception) {
+                        isDownloadSuccessful = false
+                        failedDownloads.add("Ses dosyası (ID: $driveId)")
+                        audioFile.delete()
+                        Log.e("BackupActivity", "Ses dosyası oluşturulurken hata: $driveId", e)
                     }
                 }
                 val finalContent = content.copy(imagePath = localImagePath, audioFilePath = localAudioPath)
@@ -911,8 +969,8 @@ class BackupActivity : AppCompatActivity() {
             }
 
             if (isDownloadSuccessful) {
-                noteDao.deleteAllNotes()
-                noteDao.insertAll(restoredNotes)
+                // Transaction ile güvenli veritabanı güncelleme
+                noteDao.replaceAllNotesTransaction(restoredNotes)
 
                 val prefsEditor = PreferenceManager.getDefaultSharedPreferences(this).edit()
                 prefsEditor.putString("theme_selection", backupData.settings.themeSelection)
@@ -934,7 +992,12 @@ class BackupActivity : AppCompatActivity() {
                 }
             } else {
                 tempFiles.forEach { it.delete() }
-                throw IOException("Medya dosyası indirilemedi, işlem iptal edildi.")
+                val errorMessage = if (failedDownloads.isNotEmpty()) {
+                    "Şu medya dosyaları indirilemedi: ${failedDownloads.joinToString(", ")}"
+                } else {
+                    "Medya dosyası indirilemedi, işlem iptal edildi."
+                }
+                throw IOException(errorMessage)
             }
 
         } catch (e: Exception) {
@@ -998,7 +1061,16 @@ class BackupActivity : AppCompatActivity() {
     }
 
     private fun dismissProgressDialog() {
-        progressDialog?.dismiss()
-        progressDialog = null
+        try {
+            progressDialog?.let { dialog ->
+                if (dialog.isShowing) {
+                    dialog.dismiss()
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("BackupActivity", "Error dismissing progress dialog", e)
+        } finally {
+            progressDialog = null
+        }
     }
 }

@@ -188,19 +188,33 @@ class GoogleDriveManager(private val credential: GoogleAccountCredential) {
      * Drive'daki belirtilen dosyayı ismine göre bulur ve siler.
      *
      * @param fileName Silinecek dosyanın adı.
-     * @return İşlem başarılıysa veya dosya zaten mevcut değilse [DriveResult.Success], aksi halde [DriveResult.Error] döner.
+     * @return İşlem başarılıysa [DriveResult.Success], aksi halde [DriveResult.Error] döner.
      */
     suspend fun deleteFile(fileName: String): DriveResult<Unit> = withContext(Dispatchers.IO) {
         try {
             val fileResult = findFile(fileName)
-            if (fileResult is DriveResult.Success && fileResult.data != null) {
-                try {
-                    drive.files().delete(fileResult.data.id).execute()
-                } catch (e: GoogleJsonResponseException) {
-                    // Dosya zaten yoksa (404), bunu bir başarı olarak kabul et.
-                    if (e.statusCode != 404) {
-                        throw e
+            when (fileResult) {
+                is DriveResult.Success -> {
+                    if (fileResult.data != null) {
+                        try {
+                            drive.files().delete(fileResult.data.id).execute()
+                            Log.d(TAG, "Dosya başarıyla silindi: $fileName")
+                        } catch (e: GoogleJsonResponseException) {
+                            // Dosya zaten yoksa (404), bunu bir başarı olarak kabul et.
+                            if (e.statusCode == 404) {
+                                Log.w(TAG, "Silinmeye çalışılan dosya zaten mevcut değil: $fileName")
+                            } else {
+                                Log.e(TAG, "Dosya silme hatası: $fileName", e)
+                                throw e
+                            }
+                        }
+                    } else {
+                        Log.w(TAG, "Silinecek dosya bulunamadı: $fileName")
                     }
+                }
+                is DriveResult.Error -> {
+                    Log.e(TAG, "Dosya arama sırasında hata oluştu: $fileName", fileResult.exception)
+                    return@withContext fileResult
                 }
             }
             DriveResult.Success(Unit)
