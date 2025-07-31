@@ -756,10 +756,8 @@ class BackupActivity : AppCompatActivity() {
                     }
                 }
                 is DriveResult.Error -> {
-                    withContext(Dispatchers.Main) {
-                        dismissProgressDialog()
-                        Toast.makeText(this@BackupActivity, getString(R.string.an_error_occurred_during_backup_simple), Toast.LENGTH_SHORT).show()
-                    }
+                    Log.e("BackupActivity", "Backup upload failed", result.exception)
+                    showBackupError(result.exception)
                 }
             }
         } catch (e: Exception) {
@@ -1157,7 +1155,8 @@ class BackupActivity : AppCompatActivity() {
 
     private suspend fun showError(message: String, e: Exception) {
         withContext(Dispatchers.Main) {
-            val finalMessage = "$message: ${e.message ?: "Bilinmeyen hata"}"
+            val specificMessage = getSpecificErrorMessage(e, isBackup = true)
+            val finalMessage = "$message: $specificMessage"
             Toast.makeText(this@BackupActivity, finalMessage, Toast.LENGTH_LONG).show()
             Log.e("BackupActivity", message, e)
         }
@@ -1165,7 +1164,8 @@ class BackupActivity : AppCompatActivity() {
     
     private suspend fun showBackupError(e: Exception) {
         withContext(Dispatchers.Main) {
-            val finalMessage = getString(R.string.backup_failed, e.message ?: "Bilinmeyen hata")
+            val specificMessage = getSpecificErrorMessage(e, isBackup = true)
+            val finalMessage = getString(R.string.backup_failed, specificMessage)
             Toast.makeText(this@BackupActivity, finalMessage, Toast.LENGTH_LONG).show()
             Log.e("BackupActivity", "Backup failed", e)
         }
@@ -1173,7 +1173,8 @@ class BackupActivity : AppCompatActivity() {
     
     private suspend fun showRestoreError(e: Exception) {
         withContext(Dispatchers.Main) {
-            val finalMessage = getString(R.string.restore_failed_with_error, e.message ?: "Bilinmeyen hata")
+            val specificMessage = getSpecificErrorMessage(e, isBackup = false)
+            val finalMessage = getString(R.string.restore_failed_with_error, specificMessage)
             Toast.makeText(this@BackupActivity, finalMessage, Toast.LENGTH_LONG).show()
             Log.e("BackupActivity", "Restore failed", e)
         }
@@ -1277,5 +1278,105 @@ class BackupActivity : AppCompatActivity() {
             putExtra(android.content.Intent.EXTRA_SUBJECT, "SnapNote Backup/Restore Tanı Raporu")
         }
         startActivity(android.content.Intent.createChooser(intent, "Tanı raporunu paylaş"))
+    }
+    
+    /**
+     * Exception türüne göre kullanıcı dostu ve spesifik hata mesajları üretir.
+     * Bu fonksiyon, genel "bilinmeyen hata" mesajlarını engelleyerek kullanıcılara
+     * sorunu çözmelerine yardımcı olacak spesifik rehberlik sağlar.
+     */
+    private fun getSpecificErrorMessage(exception: Exception, isBackup: Boolean): String {
+        return when {
+            // Ağ bağlantısı sorunları
+            exception is java.net.UnknownHostException -> {
+                "İnternet bağlantısı yok. WiFi veya mobil veri bağlantınızı kontrol edin."
+            }
+            exception is java.net.SocketTimeoutException -> {
+                "Bağlantı zaman aşımına uğradı. İnternet bağlantınızı kontrol edip tekrar deneyin."
+            }
+            exception is java.net.ConnectException -> {
+                "Google Drive'a bağlanılamadı. İnternet bağlantınızı kontrol edin."
+            }
+            
+            // Google API hataları
+            exception is com.google.api.client.googleapis.json.GoogleJsonResponseException -> {
+                when (exception.statusCode) {
+                    401 -> "Google hesabı yetkilendirmesi geçersiz. Tekrar giriş yapmanız gerekiyor."
+                    403 -> "Google Drive erişim izni yok. Uygulama izinlerini kontrol edin."
+                    404 -> if (isBackup) "Yedek konumu bulunamadı." else "Yedek dosyası bulunamadı."
+                    429 -> "Çok fazla istek gönderildi. Birkaç dakika bekleyip tekrar deneyin."
+                    500, 502, 503 -> "Google Drive servisi geçici olarak erişilemez. Lütfen daha sonra tekrar deneyin."
+                    else -> "Google Drive hatası (Kod: ${exception.statusCode}). Lütfen daha sonra tekrar deneyin."
+                }
+            }
+            
+            // Dosya ve medya hataları
+            exception is java.io.FileNotFoundException -> {
+                if (isBackup) "Yedeklenecek dosya bulunamadı. Medya dosyaları kontrol edilecek."
+                else "Geri yüklenecek dosya bulunamadı."
+            }
+            exception is java.io.IOException && exception.message?.contains("No space left") == true -> {
+                "Cihazda yeterli depolama alanı yok. Yer açıp tekrar deneyin."
+            }
+            exception is java.io.IOException && exception.message?.contains("Permission denied") == true -> {
+                "Dosya erişim izni verilmedi. Uygulama izinlerini kontrol edin."
+            }
+            exception is java.io.IOException -> {
+                if (exception.message?.contains("Görsel") == true) {
+                    "Resim dosyası işlenirken hata oluştu. Dosya bozuk olabilir."
+                } else if (exception.message?.contains("Ses") == true) {
+                    "Ses dosyası işlenirken hata oluştu. Dosya bozuk olabilir."
+                } else {
+                    exception.message ?: "Dosya işleme hatası oluştu."
+                }
+            }
+            
+            // JSON ve veri hataları
+            exception is com.google.gson.JsonSyntaxException -> {
+                "Yedek dosyası bozuk veya uyumsuz format. Farklı bir yedek deneyin."
+            }
+            exception is com.google.gson.JsonParseException -> {
+                "Yedek verisi okunamadı. Dosya formatı geçersiz."
+            }
+            
+            // Güvenlik ve kimlik doğrulama hataları
+            exception is javax.net.ssl.SSLException -> {
+                "Güvenli bağlantı kurulamadı. Tarih/saat ayarlarınızı kontrol edin."
+            }
+            
+            // Bellek ve kaynak hataları
+            exception is OutOfMemoryError -> {
+                "Yetersiz bellek. Uygulamayı yeniden başlatıp tekrar deneyin."
+            }
+            
+            // Genel internet bağlantısı kontrolleri
+            !isNetworkAvailable() -> {
+                "İnternet bağlantısı yok. Bağlantınızı kontrol edip tekrar deneyin."
+            }
+            
+            // Mesaj varsa orijinal mesajı kullan, yoksa tür bazlı mesaj ver
+            !exception.message.isNullOrBlank() -> {
+                exception.message!!
+            }
+            
+            // Son çare: exception türüne göre genel mesaj
+            else -> {
+                when (exception::class.simpleName) {
+                    "SecurityException" -> "Güvenlik hatası. Uygulama izinlerini kontrol edin."
+                    "IllegalStateException" -> "Uygulama durumu geçersiz. Uygulamayı yeniden başlatın."
+                    "IllegalArgumentException" -> "Geçersiz veri formatı."
+                    "NullPointerException" -> "Veri hatası oluştu. Uygulamayı yeniden başlatın."
+                    "CancellationException" -> "İşlem iptal edildi."
+                    "TimeoutException" -> "İşlem zaman aşımına uğradı. Tekrar deneyin."
+                    else -> {
+                        if (isBackup) {
+                            "Yedekleme sırasında beklenmeyen bir hata oluştu. Ağ bağlantınızı kontrol edip tekrar deneyin."
+                        } else {
+                            "Geri yükleme sırasında beklenmeyen bir hata oluştu. Yedek dosyanızı ve ağ bağlantınızı kontrol edin."
+                        }
+                    }
+                }
+            }
+        }
     }
 }
