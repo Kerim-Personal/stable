@@ -300,4 +300,10 @@
     <string name="operation_failed_with_error">İşlem başarısız oldu: %s</string>
     <string name="logged_in_account_label">Oturum Açılan Hesap</string>
 
+    <string name="enter_new_answer_to_change">Değiştirmek için yeni cevabı girin</string>
+    <string name="backup_password_change_title">Parola Değişikliğini Yedekle</string>
+    <string name="backup_password_change_message">Parolanız değiştirildi. Google Drive yedeğinizi yeni parola bilgileriyle güncellemek ister misiniz?</string>
+    <string name="disable_button">Devre dışı bırak</string>
+    <string name="security_question_and_answer">Güvenlik Sorusu ve Cevabı</string>
+
 </resources>

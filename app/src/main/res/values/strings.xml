@@ -296,11 +296,16 @@
     <string name="data_management_summary">Manage backup, restore, and account deletion operations.</string>
     <string name="about_category_title">About</string>
     <string name="local_backup_summary">Device storage</string>
-    <string name="default_web_client_id" translatable="false">1001429080679-1gi8k9jtdeot0kbmr9j176rr40iot5ug.apps.googleusercontent.com</string>
+    <string name="your_web_client_id" translatable="false">115482441429-d7r1j5qm0v9081e9k9pnf94eit1suc91.apps.googleusercontent.com</string>
     <string name="an_unknown_error_occurred">An unknown error occurred</string>
     <string name="operation_failed_with_error">Operation failed: %s</string>
     <string name="logged_in_account_label">Logged In Account</string>
 
+    <string name="enter_new_answer_to_change">Enter new answer to change</string>
+    <string name="backup_password_change_title">Back Up Password Change</string>
+    <string name="backup_password_change_message">Your password has been changed. Do you want to update your Google Drive backup with the new password information?</string>
+    <string name="disable_button">Disable</string>
+    <string name="security_question_and_answer">Security Question and Answer</string>
 
 
 

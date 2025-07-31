@@ -27,6 +27,7 @@ googleApiClientAndroid = "2.8.0"
 googleHttpAndroid = "1.47.1"
 googleApiServicesDrive = "v3-rev20220815-2.0.0"
 hilt = "2.51.1" # Hata çözümü için versiyonu geri aldık
+credentials = "1.2.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -60,6 +61,7 @@ google-http-client-android = { group = "com.google.http-client", name = "google-
 google-api-services-drive = { group = "com.google.apis", name = "google-api-services-drive", version.ref = "googleApiServicesDrive" }
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
+androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

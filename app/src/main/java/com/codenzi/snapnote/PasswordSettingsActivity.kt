@@ -9,23 +9,23 @@ import android.view.View
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
 import com.codenzi.snapnote.databinding.ActivityPasswordSettingsBinding
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.auth.api.identity.GetSignInIntentRequest
+import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.ApiException
-import com.google.android.gms.common.api.Scope
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.gson.Gson
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
@@ -45,7 +45,7 @@ class PasswordSettingsActivity : AppCompatActivity() {
     private var progressPercentage: TextView? = null
 
     private val googleSignInLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
+        ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             handleSignInResult(result.data)
@@ -82,7 +82,7 @@ class PasswordSettingsActivity : AppCompatActivity() {
             binding.tilCurrentPassword.visibility = View.VISIBLE
             binding.btnDisablePassword.visibility = View.VISIBLE
             binding.etSecurityQuestion.setText(PasswordManager.getSecurityQuestion())
-            binding.etSecurityAnswer.hint = "Değiştirmek için yeni cevabı girin"
+            binding.etSecurityAnswer.hint = getString(R.string.enter_new_answer_to_change)
         } else {
             binding.tilCurrentPassword.visibility = View.GONE
             binding.btnDisablePassword.visibility = View.GONE
@@ -93,118 +93,125 @@ class PasswordSettingsActivity : AppCompatActivity() {
         val currentPassword = binding.etCurrentPassword.text.toString()
         val newPassword = binding.etNewPassword.text.toString()
         val confirmPassword = binding.etConfirmPassword.text.toString()
-        val securityQuestion = binding.etSecurityQuestion.text.toString().trim()
-        val securityAnswer = binding.etSecurityAnswer.text.toString().trim()
+        val securityQuestion = binding.etSecurityQuestion.text.toString()
+        val securityAnswer = binding.etSecurityAnswer.text.toString()
 
         if (PasswordManager.isPasswordSet() && !PasswordManager.checkPassword(currentPassword)) {
-            Toast.makeText(this, R.string.current_password_incorrect_error, Toast.LENGTH_SHORT).show()
+            binding.tilCurrentPassword.error = getString(R.string.current_password_incorrect_error)
             return
         }
-        if (newPassword.isBlank() || confirmPassword.isBlank()) {
-            Toast.makeText(this, getString(R.string.toast_password_fields_cannot_be_empty), Toast.LENGTH_SHORT).show()
-            return
-        }
+        binding.tilCurrentPassword.error = null
+
         if (newPassword.length < 4) {
-            Toast.makeText(this, R.string.password_too_short_error, Toast.LENGTH_SHORT).show()
+            binding.tilNewPassword.error = getString(R.string.password_too_short_error)
             return
         }
+        binding.tilNewPassword.error = null
+
         if (newPassword != confirmPassword) {
-            Toast.makeText(this, R.string.password_mismatch_error, Toast.LENGTH_SHORT).show()
+            binding.tilConfirmPassword.error = getString(R.string.password_mismatch_error)
             return
         }
+        binding.tilConfirmPassword.error = null
+
         if (securityQuestion.isBlank() || securityAnswer.isBlank()) {
-            Toast.makeText(this, getString(R.string.security_question_needed_error), Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.security_question_needed_error), Toast.LENGTH_LONG).show()
             return
         }
 
         PasswordManager.setPasswordAndSecurityQuestion(newPassword, securityQuestion, securityAnswer)
-        Toast.makeText(this, getString(R.string.password_and_security_question_set_success), Toast.LENGTH_SHORT).show()
-        triggerAutomaticBackup()
+        Toast.makeText(this, getString(R.string.password_set_success), Toast.LENGTH_SHORT).show()
+
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        // Düzeltme: `auto_backup_on_pass_change` anahtarı preferences.xml'de olmadığı için kontrol kaldırıldı, direkt sor.
+        showBackupConfirmationDialog()
+    }
+
+    private fun showBackupConfirmationDialog() {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.backup_password_change_title))
+            .setMessage(getString(R.string.backup_password_change_message))
+            .setPositiveButton(getString(R.string.dialog_yes)) { _, _ ->
+                triggerAutomaticBackup()
+            }
+            .setNegativeButton(getString(R.string.dialog_no)) { _, _ ->
+                finish()
+            }
+            .setCancelable(false)
+            .show()
     }
 
     private fun showDisablePasswordConfirmationDialog() {
         AlertDialog.Builder(this)
-            .setTitle(R.string.password_disable_confirmation_title)
-            .setMessage("Şifreyi devre dışı bırakmak istediğinizden emin misiniz? Bu işlem, Google Drive'daki yedeğinizi de güncelleyecektir.")
-            .setPositiveButton(R.string.dialog_yes) { _, _ -> disablePassword() }
-            .setNegativeButton(R.string.dialog_no, null)
+            .setTitle(getString(R.string.disable_password_button))
+            .setMessage(getString(R.string.password_disable_confirmation_message))
+            .setPositiveButton(getString(R.string.disable_button)) { _, _ ->
+                disablePassword()
+            }
+            .setNegativeButton(getString(R.string.dialog_cancel), null)
             .show()
     }
 
     private fun disablePassword() {
         val currentPassword = binding.etCurrentPassword.text.toString()
         if (!PasswordManager.checkPassword(currentPassword)) {
-            Toast.makeText(this, R.string.current_password_incorrect_error, Toast.LENGTH_SHORT).show()
+            binding.tilCurrentPassword.error = getString(R.string.current_password_incorrect_error)
             return
         }
-
+        // Düzeltme: `clearPassword` yerine `disablePassword` kullanılıyor.
         PasswordManager.disablePassword()
-        Toast.makeText(this, "Parola kaldırıldı. Otomatik yedekleme başlatılıyor...", Toast.LENGTH_SHORT).show()
-        triggerAutomaticBackup()
+        Toast.makeText(this, getString(R.string.password_disabled_success), Toast.LENGTH_SHORT).show()
+
+        // Şifre kaldırıldıktan sonra da yedekleme sorusu gösteriliyor.
+        showBackupConfirmationDialog()
+    }
+
+    private fun showSecurityInfoDialog() {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.security_question_and_answer))
+            .setMessage(getString(R.string.password_security_explanation))
+            .setPositiveButton(getString(R.string.dialog_ok), null)
+            .show()
     }
 
     private fun triggerAutomaticBackup() {
-        val lastSignedInAccount = GoogleSignIn.getLastSignedInAccount(this)
-        val driveScope = Scope("https://www.googleapis.com/auth/drive.appdata")
-
-        if (lastSignedInAccount != null && lastSignedInAccount.grantedScopes.contains(driveScope)) {
-            performAutomaticBackup(lastSignedInAccount)
-        } else {
-            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestEmail()
-                .requestScopes(driveScope)
+        lifecycleScope.launch {
+            val signInClient = Identity.getSignInClient(this@PasswordSettingsActivity)
+            val request = GetSignInIntentRequest.builder()
+                .setServerClientId(getString(R.string.your_web_client_id))
                 .build()
-            val googleSignInClient = GoogleSignIn.getClient(this, gso)
-            googleSignInClient.signOut().addOnCompleteListener {
-                googleSignInLauncher.launch(googleSignInClient.signInIntent)
+            try {
+                val result = signInClient.getSignInIntent(request).await()
+                googleSignInLauncher.launch(IntentSenderRequest.Builder(result).build())
+            } catch (e: Exception) {
+                Log.e("PasswordSettings", "triggerAutomaticBackup failed", e)
+                Toast.makeText(this@PasswordSettingsActivity, "Google ile oturum açılamadı. Parola değişikliği yedeklenemedi.", Toast.LENGTH_LONG).show()
+                finish()
             }
         }
     }
 
     private fun handleSignInResult(data: Intent?) {
-        try {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
-            performAutomaticBackup(task.getResult(ApiException::class.java)!!)
-        } catch (e: ApiException) {
-            Log.w("PasswordSettings", "signInResult:failed code=" + e.statusCode, e)
-            Toast.makeText(this, "Google ile oturum açılamadı. Parola değişikliği yedeklenemedi.", Toast.LENGTH_LONG).show()
-            finish()
+        lifecycleScope.launch {
+            try {
+                val credential = Identity.getSignInClient(this@PasswordSettingsActivity).getSignInCredentialFromIntent(data)
+                performAutomaticBackup(credential.id)
+            } catch (e: ApiException) {
+                Log.w("PasswordSettings", "handleSignInResult:failed code=" + e.statusCode, e)
+                Toast.makeText(this@PasswordSettingsActivity, "Google ile oturum açılamadı. Parola değişikliği yedeklenemedi.", Toast.LENGTH_LONG).show()
+                finish()
+            }
         }
     }
 
-    private fun showProgressDialog() {
-        val builder = AlertDialog.Builder(this)
-        val inflater = this.layoutInflater
-        val dialogView = inflater.inflate(R.layout.dialog_progress, null)
-
-        progressBar = dialogView.findViewById(R.id.progress_bar)
-        progressTitle = dialogView.findViewById(R.id.tv_progress_title)
-        progressPercentage = dialogView.findViewById(R.id.tv_progress_percentage)
-
-        progressTitle?.text = getString(R.string.backup_update_in_progress)
-
-        builder.setView(dialogView)
-        builder.setCancelable(false)
-        progressDialog = builder.create()
-        progressDialog?.show()
-    }
-
-    private fun updateProgress(progress: Int) {
-        progressBar?.progress = progress
-        progressPercentage?.text = "$progress%"
-    }
-
-    private fun dismissProgressDialog() {
-        progressDialog?.dismiss()
-        progressDialog = null
-    }
-
-    private fun performAutomaticBackup(account: GoogleSignInAccount) {
+    private fun performAutomaticBackup(accountId: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             val credential = GoogleAccountCredential.usingOAuth2(
                 this@PasswordSettingsActivity,
                 listOf("https://www.googleapis.com/auth/drive.appdata")
-            ).setSelectedAccount(account.account)
+            )
+            credential.selectedAccountName = accountId
+
             val googleDriveManager = GoogleDriveManager(credential)
 
             try {
@@ -221,7 +228,9 @@ class PasswordSettingsActivity : AppCompatActivity() {
 
     private suspend fun proceedWithFullBackup(googleDriveManager: GoogleDriveManager, notesToBackup: List<Note>) {
         withContext(Dispatchers.Main) {
-            showProgressDialog()
+            showProgressDialog(R.string.backup_in_progress)
+            progressPercentage?.visibility = View.VISIBLE
+            progressBar?.isIndeterminate = false
         }
 
         val tempDir = File(cacheDir, "backup_temp").apply { mkdirs() }
@@ -254,8 +263,7 @@ class PasswordSettingsActivity : AppCompatActivity() {
                             FileOutputStream(tempFile).use { outputStream ->
                                 inputStream.copyTo(outputStream)
                             }
-                            // DÜZELTME: DriveResult kontrolü eklendi
-                            when(val result = googleDriveManager.uploadMediaFile(tempFile, "image/jpeg")) {
+                            when (val result = googleDriveManager.uploadMediaFile(tempFile, "image/jpeg")) {
                                 is DriveResult.Success -> imageDriveId = result.data
                                 is DriveResult.Error -> Log.e("PasswordSettingsBackup", "Görsel yüklenemedi: ${result.exception.message}")
                             }
@@ -264,11 +272,11 @@ class PasswordSettingsActivity : AppCompatActivity() {
                         Log.e("PasswordSettingsBackup", "Görsel işlenirken hata oluştu: $path", e)
                     }
                 }
+
                 var audioDriveId: String? = null
                 content.audioFilePath?.let { path ->
                     val audioFile = File(path)
                     if (audioFile.exists()) {
-                        // DÜZELTME: DriveResult kontrolü eklendi
                         when (val result = googleDriveManager.uploadMediaFile(audioFile, "audio/mp4")) {
                             is DriveResult.Success -> audioDriveId = result.data
                             is DriveResult.Error -> Log.e("PasswordSettingsBackup", "Ses dosyası yüklenemedi: ${result.exception.message}")
@@ -295,20 +303,19 @@ class PasswordSettingsActivity : AppCompatActivity() {
             )
             val backupJson = gson.toJson(backupData)
 
-            // DÜZELTME: DriveResult kontrolü eklendi
             when (val result = googleDriveManager.uploadJsonBackup("snapnote_backup.json", backupJson)) {
                 is DriveResult.Success -> {
                     withContext(Dispatchers.Main) {
                         updateProgress(100)
                         dismissProgressDialog()
-                        Toast.makeText(this@PasswordSettingsActivity, "Parola değişikliği Google Drive yedeğine başarıyla yansıtıldı.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@PasswordSettingsActivity, getString(R.string.password_change_backup_success), Toast.LENGTH_LONG).show()
                         finish()
                     }
                 }
                 is DriveResult.Error -> {
                     withContext(Dispatchers.Main) {
                         dismissProgressDialog()
-                        Toast.makeText(this@PasswordSettingsActivity, "Parola değiştirildi ancak Drive yedeği güncellenemedi.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@PasswordSettingsActivity, getString(R.string.password_change_backup_fail), Toast.LENGTH_LONG).show()
                         finish()
                     }
                 }
@@ -324,11 +331,32 @@ class PasswordSettingsActivity : AppCompatActivity() {
         }
     }
 
-    private fun showSecurityInfoDialog() {
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.security_info_title))
-            .setMessage(R.string.password_security_explanation)
-            .setPositiveButton(getString(R.string.dialog_ok), null)
-            .show()
+    private fun showProgressDialog(titleResId: Int) {
+        val builder = AlertDialog.Builder(this)
+        val inflater = this.layoutInflater
+        val dialogView = inflater.inflate(R.layout.dialog_progress, null)
+
+        progressBar = dialogView.findViewById(R.id.progress_bar)
+        progressTitle = dialogView.findViewById(R.id.tv_progress_title)
+        progressPercentage = dialogView.findViewById(R.id.tv_progress_percentage)
+
+        progressTitle?.text = getString(titleResId)
+        progressBar?.isIndeterminate = true
+        progressPercentage?.visibility = View.GONE
+
+        builder.setView(dialogView)
+        builder.setCancelable(false)
+        progressDialog = builder.create()
+        progressDialog?.show()
+    }
+
+    private fun updateProgress(progress: Int) {
+        progressBar?.progress = progress
+        progressPercentage?.text = getString(R.string.progress_percentage_format, progress)
+    }
+
+    private fun dismissProgressDialog() {
+        progressDialog?.dismiss()
+        progressDialog = null
     }
 }
