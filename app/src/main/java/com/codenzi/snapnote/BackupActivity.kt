@@ -131,6 +131,12 @@ class BackupActivity : AppCompatActivity() {
         binding.btnDeleteAccount.setOnClickListener {
             showDeleteAccountConfirmationDialog()
         }
+        
+        // Tanı aracı için gizli buton (uzun basma)
+        binding.toolbarBackup.setOnLongClickListener {
+            showDiagnosticsDialog()
+            true
+        }
     }
 
     private suspend fun exportToDevice(uri: Uri) {
@@ -708,10 +714,45 @@ class BackupActivity : AppCompatActivity() {
 
             when (val result = googleDriveManager.uploadJsonBackup("snapnote_backup.json", backupJson)) {
                 is DriveResult.Success -> {
-                    withContext(Dispatchers.Main) {
-                        updateProgress(100)
-                        dismissProgressDialog()
-                        Toast.makeText(this@BackupActivity, getString(R.string.backup_successful), Toast.LENGTH_SHORT).show()
+                    // Yedekleme başarılı, şimdi doğrulama yap
+                    Log.d("BackupActivity", "Yedekleme başarılı, doğrulama yapılıyor...")
+                    val verificationResult = googleDriveManager.downloadJsonBackup(result.data)
+                    when (verificationResult) {
+                        is DriveResult.Success -> {
+                            try {
+                                val verificationData: BackupData = gson.fromJson(verificationResult.data, object : TypeToken<BackupData>() {}.type)
+                                if (verificationData.notes.size == notesForBackup.size) {
+                                    Log.d("BackupActivity", "Yedekleme doğrulaması başarılı")
+                                    withContext(Dispatchers.Main) {
+                                        updateProgress(100)
+                                        dismissProgressDialog()
+                                        Toast.makeText(this@BackupActivity, getString(R.string.backup_successful), Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    Log.w("BackupActivity", "Yedekleme doğrulaması başarısız: not sayısı uyuşmuyor")
+                                    withContext(Dispatchers.Main) {
+                                        updateProgress(100)
+                                        dismissProgressDialog()
+                                        Toast.makeText(this@BackupActivity, "Yedekleme tamamlandı ancak doğrulama sırasında uyarı oluştu.", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.w("BackupActivity", "Yedekleme doğrulaması başarısız", e)
+                                withContext(Dispatchers.Main) {
+                                    updateProgress(100)
+                                    dismissProgressDialog()
+                                    Toast.makeText(this@BackupActivity, "Yedekleme tamamlandı ancak doğrulanması başarısız.", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                        is DriveResult.Error -> {
+                            Log.w("BackupActivity", "Yedekleme doğrulaması yapılamadı", verificationResult.exception)
+                            withContext(Dispatchers.Main) {
+                                updateProgress(100)
+                                dismissProgressDialog()
+                                Toast.makeText(this@BackupActivity, "Yedekleme tamamlandı ancak doğrulanması yapılamadı.", Toast.LENGTH_LONG).show()
+                            }
+                        }
                     }
                 }
                 is DriveResult.Error -> {
@@ -1162,5 +1203,67 @@ class BackupActivity : AppCompatActivity() {
         } finally {
             progressDialog = null
         }
+    }
+    
+    private fun showDiagnosticsDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Sistem Tanısı")
+            .setMessage("Backup/restore sorunlarını teşhis etmek için sistem kontrolü çalıştırılsın mı?")
+            .setPositiveButton("Çalıştır") { _, _ ->
+                runDiagnostics()
+            }
+            .setNegativeButton("İptal", null)
+            .show()
+    }
+    
+    private fun runDiagnostics() {
+        lifecycleScope.launch {
+            try {
+                showProgressDialog(R.string.action_import_in_progress) // "İşlem devam ediyor" kullanıyoruz
+                progressTitle?.text = "Sistem tanısı çalıştırılıyor..."
+                
+                val report = BackupDiagnostics.runComprehensiveDiagnostics(this@BackupActivity)
+                val formattedReport = BackupDiagnostics.formatDiagnosticReport(report)
+                
+                dismissProgressDialog()
+                
+                // Raporu dialog'da göster
+                showDiagnosticResultDialog(formattedReport)
+                
+            } catch (e: Exception) {
+                dismissProgressDialog()
+                Toast.makeText(this@BackupActivity, "Tanı çalıştırılırken hata: ${e.message}", Toast.LENGTH_LONG).show()
+                Log.e("BackupActivity", "Diagnostic failed", e)
+            }
+        }
+    }
+    
+    private fun showDiagnosticResultDialog(report: String) {
+        val scrollView = android.widget.ScrollView(this)
+        val textView = android.widget.TextView(this).apply {
+            text = report
+            typeface = android.graphics.Typeface.MONOSPACE
+            textSize = 12f
+            setPadding(16, 16, 16, 16)
+        }
+        scrollView.addView(textView)
+        
+        AlertDialog.Builder(this)
+            .setTitle("Tanı Raporu")
+            .setView(scrollView)
+            .setPositiveButton("Kapat", null)
+            .setNeutralButton("Paylaş") { _, _ ->
+                shareReport(report)
+            }
+            .show()
+    }
+    
+    private fun shareReport(report: String) {
+        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(android.content.Intent.EXTRA_TEXT, report)
+            putExtra(android.content.Intent.EXTRA_SUBJECT, "SnapNote Backup/Restore Tanı Raporu")
+        }
+        startActivity(android.content.Intent.createChooser(intent, "Tanı raporunu paylaş"))
     }
 }
