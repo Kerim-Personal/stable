@@ -131,6 +131,12 @@ class BackupActivity : AppCompatActivity() {
         binding.btnDeleteAccount.setOnClickListener {
             showDeleteAccountConfirmationDialog()
         }
+        
+        // Tanı aracı için gizli buton (uzun basma)
+        binding.toolbarBackup.setOnLongClickListener {
+            showDiagnosticsDialog()
+            true
+        }
     }
 
     private suspend fun exportToDevice(uri: Uri) {
@@ -267,7 +273,17 @@ class BackupActivity : AppCompatActivity() {
             if (!jsonFile.exists()) {
                 throw IOException("backup.json not found in ZIP file.")
             }
-            val backupData: BackupData = gson.fromJson(jsonFile.readText(), object : TypeToken<BackupData>() {}.type)
+            
+            val backupData: BackupData = try {
+                gson.fromJson(jsonFile.readText(), object : TypeToken<BackupData>() {}.type)
+            } catch (e: Exception) {
+                throw IOException("Backup file is corrupted or has invalid format: ${e.message}", e)
+            }
+            
+            // Validate backup content
+            if (backupData.notes.isEmpty()) {
+                throw IOException("Backup file contains no notes to restore.")
+            }
 
             withContext(Dispatchers.Main) {
                 if (backupData.passwordHash != null) {
@@ -312,13 +328,22 @@ class BackupActivity : AppCompatActivity() {
             .setMessage(getString(R.string.import_password_protected_message))
             .setView(editText)
             .setPositiveButton(getString(R.string.confirm_button)) { _, _ ->
-                val enteredPassword = editText.text.toString()
-                if (PasswordManager.checkPassword(enteredPassword, backupData.salt!!, backupData.passwordHash!!)) {
-                    lifecycleScope.launch {
-                        proceedWithLocalRestore(backupData, tempDir)
+                val enteredPassword = editText.text.toString().trim()
+                if (enteredPassword.isEmpty()) {
+                    Toast.makeText(this, "Şifre boş olamaz", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                if (backupData.salt != null && backupData.passwordHash != null) {
+                    if (PasswordManager.checkPassword(enteredPassword, backupData.salt, backupData.passwordHash)) {
+                        lifecycleScope.launch {
+                            proceedWithLocalRestore(backupData, tempDir)
+                        }
+                    } else {
+                        Toast.makeText(this, getString(R.string.incorrect_password), Toast.LENGTH_SHORT).show()
+                        tempDir.deleteRecursively()
                     }
                 } else {
-                    Toast.makeText(this, getString(R.string.incorrect_password), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Yedek dosyasında şifre bilgileri eksik", Toast.LENGTH_SHORT).show()
                     tempDir.deleteRecursively()
                 }
             }
@@ -336,8 +361,6 @@ class BackupActivity : AppCompatActivity() {
         }
 
         try {
-            noteDao.deleteAllNotes()
-
             val restoredNotes = backupData.notes.map { note ->
                 val content = gson.fromJson(note.content, NoteContent::class.java)
                 var newImagePath: String? = null
@@ -364,7 +387,8 @@ class BackupActivity : AppCompatActivity() {
                 note.copy(content = gson.toJson(newContent))
             }
 
-            noteDao.insertAll(restoredNotes)
+            // Transaction ile güvenli veritabanı güncelleme
+            noteDao.replaceAllNotesTransaction(restoredNotes)
 
             val prefsEditor = PreferenceManager.getDefaultSharedPreferences(this).edit()
             prefsEditor.putString("theme_selection", backupData.settings.themeSelection)
@@ -418,44 +442,97 @@ class BackupActivity : AppCompatActivity() {
     }
 
     private fun signInToGoogle() {
+        // Ağ bağlantısını kontrol et
+        if (!isNetworkAvailable()) {
+            Toast.makeText(this, "İnternet bağlantısı gerekli. Lütfen bağlantınızı kontrol edin.", Toast.LENGTH_LONG).show()
+            return
+        }
+        
         lifecycleScope.launch {
-            val signInClient = Identity.getSignInClient(this@BackupActivity)
-            val request = GetSignInIntentRequest.builder()
-                .setServerClientId(getString(R.string.your_web_client_id))
-                .build()
             try {
+                Log.d("BackupActivity", "Google Sign-In başlatılıyor...")
+                val signInClient = Identity.getSignInClient(this@BackupActivity)
+                val clientId = getString(R.string.your_web_client_id)
+                Log.d("BackupActivity", "Client ID: $clientId")
+                
+                val request = GetSignInIntentRequest.builder()
+                    .setServerClientId(clientId)
+                    .build()
+                
                 val result = signInClient.getSignInIntent(request).await()
+                Log.d("BackupActivity", "Sign-in intent alındı, launcher başlatılıyor...")
                 googleSignInLauncher.launch(IntentSenderRequest.Builder(result).build())
             } catch (e: Exception) {
-                Log.e("BackupActivity", "Sign-in failed", e)
-                Toast.makeText(this@BackupActivity, getString(R.string.sign_in_error_try_again), Toast.LENGTH_LONG).show()
+                Log.e("BackupActivity", "Google Sign-In başlatılırken hata oluştu", e)
+                val errorMessage = when {
+                    e.message?.contains("INVALID_REQUEST") == true -> 
+                        "OAuth yapılandırması geçersiz. Client ID'yi kontrol edin."
+                    e.message?.contains("NETWORK_ERROR") == true -> 
+                        "Ağ bağlantısı sorunu. İnternet bağlantınızı kontrol edin."
+                    e.message?.contains("SIGN_IN_FAILED") == true -> 
+                        "Google hesabı doğrulaması başarısız."
+                    else -> "Giriş hatası: ${e.message}"
+                }
+                Toast.makeText(this@BackupActivity, errorMessage, Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager = getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        val network = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET)
     }
 
     private fun handleSignInResult(data: Intent?) {
         lifecycleScope.launch {
             try {
+                Log.d("BackupActivity", "Sign-in sonucu işleniyor...")
                 val credential = Identity.getSignInClient(this@BackupActivity).getSignInCredentialFromIntent(data)
+                Log.d("BackupActivity", "Kimlik bilgileri alındı: ${credential.id}")
+                
                 val googleCredential = GoogleAccountCredential.usingOAuth2(
                     this@BackupActivity,
                     listOf("https://www.googleapis.com/auth/drive.appdata")
                 )
                 googleCredential.selectedAccountName = credential.id
+                
+                Log.d("BackupActivity", "GoogleDriveManager oluşturuluyor...")
                 val googleDriveManager = GoogleDriveManager(googleCredential)
 
                 when (requestedAction) {
-                    Action.BACKUP -> backupNotes(googleDriveManager)
-                    Action.RESTORE -> restoreNotes(googleDriveManager)
-                    Action.DELETE -> performAccountDeletion(googleDriveManager)
-                    else -> {}
+                    Action.BACKUP -> {
+                        Log.d("BackupActivity", "Yedekleme işlemi başlatılıyor...")
+                        backupNotes(googleDriveManager)
+                    }
+                    Action.RESTORE -> {
+                        Log.d("BackupActivity", "Geri yükleme işlemi başlatılıyor...")
+                        restoreNotes(googleDriveManager)
+                    }
+                    Action.DELETE -> {
+                        Log.d("BackupActivity", "Hesap silme işlemi başlatılıyor...")
+                        performAccountDeletion(googleDriveManager)
+                    }
+                    else -> {
+                        Log.w("BackupActivity", "Bilinmeyen eylem: $requestedAction")
+                    }
                 }
             } catch (e: ApiException) {
-                Log.w("BackupActivity", "signInResult:failed code=" + e.statusCode, e)
-                Toast.makeText(this@BackupActivity, getString(R.string.sign_in_error_try_again), Toast.LENGTH_LONG).show()
+                Log.w("BackupActivity", "Google Sign-In API hatası: kod=" + e.statusCode, e)
+                val errorMessage = when (e.statusCode) {
+                    12501 -> "Google Play Hizmetleri mevcut değil veya güncel değil."
+                    12502 -> "Geçersiz hesap seçimi."
+                    12500 -> "İç hata oluştu. Tekrar deneyin."
+                    else -> "Google Sign-In hatası (kod: ${e.statusCode})"
+                }
+                Toast.makeText(this@BackupActivity, errorMessage, Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
-                Log.e("BackupActivity", "handleSignInResult'ta genel hata", e)
-                Toast.makeText(this@BackupActivity, getString(R.string.an_unknown_error_occurred), Toast.LENGTH_LONG).show()
+                Log.e("BackupActivity", "Sign-in sonucu işlenirken beklenmeyen hata", e)
+                val errorMessage = "Beklenmeyen bir hata oluştu: ${e.message}"
+                Toast.makeText(this@BackupActivity, errorMessage, Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -495,6 +572,7 @@ class BackupActivity : AppCompatActivity() {
     private fun backupNotes(googleDriveManager: GoogleDriveManager) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                Log.d("BackupActivity", "Yerel notlar alınıyor...")
                 val localNotes = noteDao.getAllNotes().first()
 
                 if (localNotes.isEmpty()) {
@@ -504,9 +582,11 @@ class BackupActivity : AppCompatActivity() {
                     return@launch
                 }
 
+                Log.d("BackupActivity", "${localNotes.size} not bulundu, mevcut yedek kontrol ediliyor...")
                 when (val result = googleDriveManager.getBackupFiles()) {
                     is DriveResult.Success -> {
                         val existingBackup = result.data.firstOrNull()
+                        Log.d("BackupActivity", "Mevcut yedek durumu: ${if (existingBackup != null) "bulundu" else "bulunamadı"}")
                         withContext(Dispatchers.Main) {
                             if (existingBackup != null) {
                                 AlertDialog.Builder(this@BackupActivity)
@@ -527,11 +607,13 @@ class BackupActivity : AppCompatActivity() {
                         }
                     }
                     is DriveResult.Error -> {
-                        showError("Error during backup check", result.exception)
+                        Log.e("BackupActivity", "Mevcut yedekler kontrol edilirken hata", result.exception)
+                        showBackupError(result.exception)
                     }
                 }
             } catch (e: Exception) {
-                showError("Error during backup check", e)
+                Log.e("BackupActivity", "Yedekleme başlatılırken hata", e)
+                showBackupError(e)
             }
         }
     }
@@ -574,12 +656,20 @@ class BackupActivity : AppCompatActivity() {
                                 inputStream.copyTo(outputStream)
                             }
                             when (val result = googleDriveManager.uploadMediaFile(tempFile, "image/jpeg")) {
-                                is DriveResult.Success -> imageDriveId = result.data
-                                is DriveResult.Error -> Log.e("BackupActivity", "Görsel yüklenemedi: ${result.exception.message}")
+                                is DriveResult.Success -> {
+                                    imageDriveId = result.data
+                                    Log.d("BackupActivity", "Görsel başarıyla yüklendi: $imageDriveId")
+                                }
+                                is DriveResult.Error -> {
+                                    Log.e("BackupActivity", "Görsel yüklenemedi: ${result.exception.message}", result.exception)
+                                    throw IOException("Görsel yüklenirken hata oluştu: ${result.exception.message}", result.exception)
+                                }
                             }
+                            tempFile.delete() // Geçici dosyayı temizle
                         }
                     } catch (e: Exception) {
                         Log.e("BackupActivity", "Görsel işlenirken hata oluştu: $path", e)
+                        throw IOException("Görsel işlenirken hata oluştu: ${e.message}", e)
                     }
                 }
 
@@ -588,9 +678,18 @@ class BackupActivity : AppCompatActivity() {
                     val audioFile = File(path)
                     if (audioFile.exists()) {
                         when (val result = googleDriveManager.uploadMediaFile(audioFile, "audio/mp4")) {
-                            is DriveResult.Success -> audioDriveId = result.data
-                            is DriveResult.Error -> Log.e("BackupActivity", "Ses dosyası yüklenemedi: ${result.exception.message}")
+                            is DriveResult.Success -> {
+                                audioDriveId = result.data
+                                Log.d("BackupActivity", "Ses dosyası başarıyla yüklendi: $audioDriveId")
+                            }
+                            is DriveResult.Error -> {
+                                Log.e("BackupActivity", "Ses dosyası yüklenemedi: ${result.exception.message}", result.exception)
+                                throw IOException("Ses dosyası yüklenirken hata oluştu: ${result.exception.message}", result.exception)
+                            }
                         }
+                    } else {
+                        Log.w("BackupActivity", "Ses dosyası bulunamadı: $path")
+                        // Dosya yoksa null bırak, yedekleme devam etsin
                     }
                 }
                 val newContent = content.copy(imagePath = imageDriveId, audioFilePath = audioDriveId)
@@ -615,24 +714,57 @@ class BackupActivity : AppCompatActivity() {
 
             when (val result = googleDriveManager.uploadJsonBackup("snapnote_backup.json", backupJson)) {
                 is DriveResult.Success -> {
-                    withContext(Dispatchers.Main) {
-                        updateProgress(100)
-                        dismissProgressDialog()
-                        Toast.makeText(this@BackupActivity, getString(R.string.backup_successful), Toast.LENGTH_SHORT).show()
+                    // Yedekleme başarılı, şimdi doğrulama yap
+                    Log.d("BackupActivity", "Yedekleme başarılı, doğrulama yapılıyor...")
+                    val verificationResult = googleDriveManager.downloadJsonBackup(result.data)
+                    when (verificationResult) {
+                        is DriveResult.Success -> {
+                            try {
+                                val verificationData: BackupData = gson.fromJson(verificationResult.data, object : TypeToken<BackupData>() {}.type)
+                                if (verificationData.notes.size == notesForBackup.size) {
+                                    Log.d("BackupActivity", "Yedekleme doğrulaması başarılı")
+                                    withContext(Dispatchers.Main) {
+                                        updateProgress(100)
+                                        dismissProgressDialog()
+                                        Toast.makeText(this@BackupActivity, getString(R.string.backup_successful), Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    Log.w("BackupActivity", "Yedekleme doğrulaması başarısız: not sayısı uyuşmuyor")
+                                    withContext(Dispatchers.Main) {
+                                        updateProgress(100)
+                                        dismissProgressDialog()
+                                        Toast.makeText(this@BackupActivity, "Yedekleme tamamlandı ancak doğrulama sırasında uyarı oluştu.", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.w("BackupActivity", "Yedekleme doğrulaması başarısız", e)
+                                withContext(Dispatchers.Main) {
+                                    updateProgress(100)
+                                    dismissProgressDialog()
+                                    Toast.makeText(this@BackupActivity, "Yedekleme tamamlandı ancak doğrulanması başarısız.", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                        is DriveResult.Error -> {
+                            Log.w("BackupActivity", "Yedekleme doğrulaması yapılamadı", verificationResult.exception)
+                            withContext(Dispatchers.Main) {
+                                updateProgress(100)
+                                dismissProgressDialog()
+                                Toast.makeText(this@BackupActivity, "Yedekleme tamamlandı ancak doğrulanması yapılamadı.", Toast.LENGTH_LONG).show()
+                            }
+                        }
                     }
                 }
                 is DriveResult.Error -> {
-                    withContext(Dispatchers.Main) {
-                        dismissProgressDialog()
-                        Toast.makeText(this@BackupActivity, getString(R.string.an_error_occurred_during_backup_simple), Toast.LENGTH_SHORT).show()
-                    }
+                    Log.e("BackupActivity", "Backup upload failed", result.exception)
+                    showBackupError(result.exception)
                 }
             }
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
                 dismissProgressDialog()
             }
-            showError("Backup failed", e)
+            showBackupError(e)
         } finally {
             tempDir.deleteRecursively()
         }
@@ -666,8 +798,17 @@ class BackupActivity : AppCompatActivity() {
                                     }
                                     return@launch
                                 }
-                                val type = object : TypeToken<BackupData>() {}.type
-                                val backupData: BackupData = gson.fromJson(jsonContent, type)
+                                val backupData: BackupData = try {
+                                    val type = object : TypeToken<BackupData>() {}.type
+                                    gson.fromJson(jsonContent, type)
+                                } catch (e: Exception) {
+                                    withContext(Dispatchers.Main) {
+                                        dismissProgressDialog()
+                                        Toast.makeText(this@BackupActivity, "Yedek dosyası bozuk veya geçersiz format.", Toast.LENGTH_LONG).show()
+                                    }
+                                    Log.e("BackupActivity", "Yedek dosyası parse edilemedi", e)
+                                    return@launch
+                                }
                                 if (backupData.notes.isEmpty()) {
                                     withContext(Dispatchers.Main) {
                                         dismissProgressDialog()
@@ -693,7 +834,7 @@ class BackupActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     dismissProgressDialog()
                 }
-                showError(getString(R.string.restore_failed), e)
+                showRestoreError(e)
             }
         }
     }
@@ -756,13 +897,21 @@ class BackupActivity : AppCompatActivity() {
             .setTitle(R.string.security_question_title)
             .setView(layout)
             .setPositiveButton(R.string.submit_button) { _, _ ->
-                val answer = answerInput.text.toString()
-                if (PasswordManager.checkPassword(answer, backupData.securitySalt!!, backupData.securityAnswerHash!!)) {
-                    lifecycleScope.launch(Dispatchers.IO) {
-                        proceedWithRestore(googleDriveManager, backupData)
+                val answer = answerInput.text.toString().trim()
+                if (answer.isEmpty()) {
+                    Toast.makeText(this, "Güvenlik cevabı boş olamaz", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                if (backupData.securitySalt != null && backupData.securityAnswerHash != null) {
+                    if (PasswordManager.checkPassword(answer, backupData.securitySalt, backupData.securityAnswerHash)) {
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            proceedWithRestore(googleDriveManager, backupData)
+                        }
+                    } else {
+                        Toast.makeText(this, R.string.incorrect_security_answer, Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                    Toast.makeText(this, R.string.incorrect_security_answer, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Yedek dosyasında güvenlik bilgileri eksik", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton(R.string.dialog_cancel, null)
@@ -797,13 +946,22 @@ class BackupActivity : AppCompatActivity() {
             .setTitle(R.string.security_question_title)
             .setView(layout)
             .setPositiveButton(R.string.submit_button) { _, _ ->
-                val answer = answerInput.text.toString()
-                if (PasswordManager.checkPassword(answer, backupData.securitySalt!!, backupData.securityAnswerHash!!)) {
-                    lifecycleScope.launch {
-                        proceedWithLocalRestore(backupData, tempDir)
+                val answer = answerInput.text.toString().trim()
+                if (answer.isEmpty()) {
+                    Toast.makeText(this, "Güvenlik cevabı boş olamaz", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                if (backupData.securitySalt != null && backupData.securityAnswerHash != null) {
+                    if (PasswordManager.checkPassword(answer, backupData.securitySalt, backupData.securityAnswerHash)) {
+                        lifecycleScope.launch {
+                            proceedWithLocalRestore(backupData, tempDir)
+                        }
+                    } else {
+                        Toast.makeText(this, R.string.incorrect_security_answer, Toast.LENGTH_SHORT).show()
+                        tempDir.deleteRecursively()
                     }
                 } else {
-                    Toast.makeText(this, R.string.incorrect_security_answer, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Yedek dosyasında güvenlik bilgileri eksik", Toast.LENGTH_SHORT).show()
                     tempDir.deleteRecursively()
                 }
             }
@@ -837,7 +995,11 @@ class BackupActivity : AppCompatActivity() {
             .setMessage(getString(R.string.backup_password_protected_message))
             .setView(editText)
             .setPositiveButton(getString(R.string.confirm_button)) { _, _ ->
-                val enteredPassword = editText.text.toString()
+                val enteredPassword = editText.text.toString().trim()
+                if (enteredPassword.isEmpty()) {
+                    Toast.makeText(this, "Şifre boş olamaz", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
                 if (backupData.passwordHash != null && backupData.salt != null) {
                     if (PasswordManager.checkPassword(enteredPassword, backupData.salt, backupData.passwordHash)) {
                         lifecycleScope.launch(Dispatchers.IO) {
@@ -846,6 +1008,8 @@ class BackupActivity : AppCompatActivity() {
                     } else {
                         Toast.makeText(this, getString(R.string.incorrect_password), Toast.LENGTH_SHORT).show()
                     }
+                } else {
+                    Toast.makeText(this, "Yedek dosyasında şifre bilgileri eksik", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton(getString(R.string.dialog_cancel), null)
@@ -866,6 +1030,7 @@ class BackupActivity : AppCompatActivity() {
             val totalSteps = notesFromBackup.size + 1
 
             var isDownloadSuccessful = true
+            val failedDownloads = mutableListOf<String>()
 
             notesFromBackup.forEachIndexed { index, note ->
                 if (!isDownloadSuccessful) return@forEachIndexed
@@ -874,31 +1039,53 @@ class BackupActivity : AppCompatActivity() {
                 var localImagePath: String? = null
                 content.imagePath?.let { driveId ->
                     val imageFile = createImageFile()
-                    val outputStream = FileOutputStream(imageFile)
-                    when(val result = googleDriveManager.downloadMediaFile(driveId, outputStream)) {
-                        is DriveResult.Success -> {
-                            localImagePath = imageFile.absolutePath
-                            tempFiles.add(imageFile)
+                    try {
+                        FileOutputStream(imageFile).use { outputStream ->
+                            when(val result = googleDriveManager.downloadMediaFile(driveId, outputStream)) {
+                                is DriveResult.Success -> {
+                                    localImagePath = imageFile.absolutePath
+                                    tempFiles.add(imageFile)
+                                    Log.d("BackupActivity", "Görsel başarıyla indirildi: $driveId")
+                                }
+                                is DriveResult.Error -> {
+                                    isDownloadSuccessful = false
+                                    failedDownloads.add("Görsel dosyası (ID: $driveId)")
+                                    imageFile.delete()
+                                    Log.e("BackupActivity", "Görsel indirilemedi: $driveId", result.exception)
+                                }
+                            }
                         }
-                        is DriveResult.Error -> {
-                            isDownloadSuccessful = false
-                            imageFile.delete()
-                        }
+                    } catch (e: Exception) {
+                        isDownloadSuccessful = false
+                        failedDownloads.add("Görsel dosyası (ID: $driveId)")
+                        imageFile.delete()
+                        Log.e("BackupActivity", "Görsel dosyası oluşturulurken hata: $driveId", e)
                     }
                 }
                 var localAudioPath: String? = null
                 content.audioFilePath?.let { driveId ->
                     val audioFile = createAudioFile()
-                    val outputStream = FileOutputStream(audioFile)
-                    when(val result = googleDriveManager.downloadMediaFile(driveId, outputStream)) {
-                        is DriveResult.Success -> {
-                            localAudioPath = audioFile.absolutePath
-                            tempFiles.add(audioFile)
+                    try {
+                        FileOutputStream(audioFile).use { outputStream ->
+                            when(val result = googleDriveManager.downloadMediaFile(driveId, outputStream)) {
+                                is DriveResult.Success -> {
+                                    localAudioPath = audioFile.absolutePath
+                                    tempFiles.add(audioFile)
+                                    Log.d("BackupActivity", "Ses dosyası başarıyla indirildi: $driveId")
+                                }
+                                is DriveResult.Error -> {
+                                    isDownloadSuccessful = false
+                                    failedDownloads.add("Ses dosyası (ID: $driveId)")
+                                    audioFile.delete()
+                                    Log.e("BackupActivity", "Ses dosyası indirilemedi: $driveId", result.exception)
+                                }
+                            }
                         }
-                        is DriveResult.Error -> {
-                            isDownloadSuccessful = false
-                            audioFile.delete()
-                        }
+                    } catch (e: Exception) {
+                        isDownloadSuccessful = false
+                        failedDownloads.add("Ses dosyası (ID: $driveId)")
+                        audioFile.delete()
+                        Log.e("BackupActivity", "Ses dosyası oluşturulurken hata: $driveId", e)
                     }
                 }
                 val finalContent = content.copy(imagePath = localImagePath, audioFilePath = localAudioPath)
@@ -911,8 +1098,8 @@ class BackupActivity : AppCompatActivity() {
             }
 
             if (isDownloadSuccessful) {
-                noteDao.deleteAllNotes()
-                noteDao.insertAll(restoredNotes)
+                // Transaction ile güvenli veritabanı güncelleme
+                noteDao.replaceAllNotesTransaction(restoredNotes)
 
                 val prefsEditor = PreferenceManager.getDefaultSharedPreferences(this).edit()
                 prefsEditor.putString("theme_selection", backupData.settings.themeSelection)
@@ -934,13 +1121,18 @@ class BackupActivity : AppCompatActivity() {
                 }
             } else {
                 tempFiles.forEach { it.delete() }
-                throw IOException("Medya dosyası indirilemedi, işlem iptal edildi.")
+                val errorMessage = if (failedDownloads.isNotEmpty()) {
+                    "Şu medya dosyaları indirilemedi: ${failedDownloads.joinToString(", ")}"
+                } else {
+                    "Medya dosyası indirilemedi, işlem iptal edildi."
+                }
+                throw IOException(errorMessage)
             }
 
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
                 dismissProgressDialog()
-                showError(getString(R.string.restore_failed_with_error, e.message), e)
+                showRestoreError(e)
             }
         }
     }
@@ -963,13 +1155,28 @@ class BackupActivity : AppCompatActivity() {
 
     private suspend fun showError(message: String, e: Exception) {
         withContext(Dispatchers.Main) {
-            val finalMessage = if (e.message != null) {
-                getString(R.string.restore_failed_with_error, e.message)
-            } else {
-                message
-            }
+            val specificMessage = getSpecificErrorMessage(e, isBackup = true)
+            val finalMessage = "$message: $specificMessage"
             Toast.makeText(this@BackupActivity, finalMessage, Toast.LENGTH_LONG).show()
             Log.e("BackupActivity", message, e)
+        }
+    }
+    
+    private suspend fun showBackupError(e: Exception) {
+        withContext(Dispatchers.Main) {
+            val specificMessage = getSpecificErrorMessage(e, isBackup = true)
+            val finalMessage = getString(R.string.backup_failed, specificMessage)
+            Toast.makeText(this@BackupActivity, finalMessage, Toast.LENGTH_LONG).show()
+            Log.e("BackupActivity", "Backup failed", e)
+        }
+    }
+    
+    private suspend fun showRestoreError(e: Exception) {
+        withContext(Dispatchers.Main) {
+            val specificMessage = getSpecificErrorMessage(e, isBackup = false)
+            val finalMessage = getString(R.string.restore_failed_with_error, specificMessage)
+            Toast.makeText(this@BackupActivity, finalMessage, Toast.LENGTH_LONG).show()
+            Log.e("BackupActivity", "Restore failed", e)
         }
     }
 
@@ -998,7 +1205,178 @@ class BackupActivity : AppCompatActivity() {
     }
 
     private fun dismissProgressDialog() {
-        progressDialog?.dismiss()
-        progressDialog = null
+        try {
+            progressDialog?.let { dialog ->
+                if (dialog.isShowing) {
+                    dialog.dismiss()
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("BackupActivity", "Error dismissing progress dialog", e)
+        } finally {
+            progressDialog = null
+        }
+    }
+    
+    private fun showDiagnosticsDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Sistem Tanısı")
+            .setMessage("Backup/restore sorunlarını teşhis etmek için sistem kontrolü çalıştırılsın mı?")
+            .setPositiveButton("Çalıştır") { _, _ ->
+                runDiagnostics()
+            }
+            .setNegativeButton("İptal", null)
+            .show()
+    }
+    
+    private fun runDiagnostics() {
+        lifecycleScope.launch {
+            try {
+                showProgressDialog(R.string.action_import_in_progress) // "İşlem devam ediyor" kullanıyoruz
+                progressTitle?.text = "Sistem tanısı çalıştırılıyor..."
+                
+                val report = BackupDiagnostics.runComprehensiveDiagnostics(this@BackupActivity)
+                val formattedReport = BackupDiagnostics.formatDiagnosticReport(report)
+                
+                dismissProgressDialog()
+                
+                // Raporu dialog'da göster
+                showDiagnosticResultDialog(formattedReport)
+                
+            } catch (e: Exception) {
+                dismissProgressDialog()
+                Toast.makeText(this@BackupActivity, "Tanı çalıştırılırken hata: ${e.message}", Toast.LENGTH_LONG).show()
+                Log.e("BackupActivity", "Diagnostic failed", e)
+            }
+        }
+    }
+    
+    private fun showDiagnosticResultDialog(report: String) {
+        val scrollView = android.widget.ScrollView(this)
+        val textView = android.widget.TextView(this).apply {
+            text = report
+            typeface = android.graphics.Typeface.MONOSPACE
+            textSize = 12f
+            setPadding(16, 16, 16, 16)
+        }
+        scrollView.addView(textView)
+        
+        AlertDialog.Builder(this)
+            .setTitle("Tanı Raporu")
+            .setView(scrollView)
+            .setPositiveButton("Kapat", null)
+            .setNeutralButton("Paylaş") { _, _ ->
+                shareReport(report)
+            }
+            .show()
+    }
+    
+    private fun shareReport(report: String) {
+        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(android.content.Intent.EXTRA_TEXT, report)
+            putExtra(android.content.Intent.EXTRA_SUBJECT, "SnapNote Backup/Restore Tanı Raporu")
+        }
+        startActivity(android.content.Intent.createChooser(intent, "Tanı raporunu paylaş"))
+    }
+    
+    /**
+     * Exception türüne göre kullanıcı dostu ve spesifik hata mesajları üretir.
+     * Bu fonksiyon, genel "bilinmeyen hata" mesajlarını engelleyerek kullanıcılara
+     * sorunu çözmelerine yardımcı olacak spesifik rehberlik sağlar.
+     */
+    private fun getSpecificErrorMessage(exception: Exception, isBackup: Boolean): String {
+        return when {
+            // Ağ bağlantısı sorunları
+            exception is java.net.UnknownHostException -> {
+                "İnternet bağlantısı yok. WiFi veya mobil veri bağlantınızı kontrol edin."
+            }
+            exception is java.net.SocketTimeoutException -> {
+                "Bağlantı zaman aşımına uğradı. İnternet bağlantınızı kontrol edip tekrar deneyin."
+            }
+            exception is java.net.ConnectException -> {
+                "Google Drive'a bağlanılamadı. İnternet bağlantınızı kontrol edin."
+            }
+            
+            // Google API hataları
+            exception is com.google.api.client.googleapis.json.GoogleJsonResponseException -> {
+                when (exception.statusCode) {
+                    401 -> "Google hesabı yetkilendirmesi geçersiz. Tekrar giriş yapmanız gerekiyor."
+                    403 -> "Google Drive erişim izni yok. Uygulama izinlerini kontrol edin."
+                    404 -> if (isBackup) "Yedek konumu bulunamadı." else "Yedek dosyası bulunamadı."
+                    429 -> "Çok fazla istek gönderildi. Birkaç dakika bekleyip tekrar deneyin."
+                    500, 502, 503 -> "Google Drive servisi geçici olarak erişilemez. Lütfen daha sonra tekrar deneyin."
+                    else -> "Google Drive hatası (Kod: ${exception.statusCode}). Lütfen daha sonra tekrar deneyin."
+                }
+            }
+            
+            // Dosya ve medya hataları
+            exception is java.io.FileNotFoundException -> {
+                if (isBackup) "Yedeklenecek dosya bulunamadı. Medya dosyaları kontrol edilecek."
+                else "Geri yüklenecek dosya bulunamadı."
+            }
+            exception is java.io.IOException && exception.message?.contains("No space left") == true -> {
+                "Cihazda yeterli depolama alanı yok. Yer açıp tekrar deneyin."
+            }
+            exception is java.io.IOException && exception.message?.contains("Permission denied") == true -> {
+                "Dosya erişim izni verilmedi. Uygulama izinlerini kontrol edin."
+            }
+            exception is java.io.IOException -> {
+                if (exception.message?.contains("Görsel") == true) {
+                    "Resim dosyası işlenirken hata oluştu. Dosya bozuk olabilir."
+                } else if (exception.message?.contains("Ses") == true) {
+                    "Ses dosyası işlenirken hata oluştu. Dosya bozuk olabilir."
+                } else {
+                    exception.message ?: "Dosya işleme hatası oluştu."
+                }
+            }
+            
+            // JSON ve veri hataları
+            exception is com.google.gson.JsonSyntaxException -> {
+                "Yedek dosyası bozuk veya uyumsuz format. Farklı bir yedek deneyin."
+            }
+            exception is com.google.gson.JsonParseException -> {
+                "Yedek verisi okunamadı. Dosya formatı geçersiz."
+            }
+            
+            // Güvenlik ve kimlik doğrulama hataları
+            exception is javax.net.ssl.SSLException -> {
+                "Güvenli bağlantı kurulamadı. Tarih/saat ayarlarınızı kontrol edin."
+            }
+            
+            // Bellek ve kaynak hataları
+            exception is OutOfMemoryError -> {
+                "Yetersiz bellek. Uygulamayı yeniden başlatıp tekrar deneyin."
+            }
+            
+            // Genel internet bağlantısı kontrolleri
+            !isNetworkAvailable() -> {
+                "İnternet bağlantısı yok. Bağlantınızı kontrol edip tekrar deneyin."
+            }
+            
+            // Mesaj varsa orijinal mesajı kullan, yoksa tür bazlı mesaj ver
+            !exception.message.isNullOrBlank() -> {
+                exception.message!!
+            }
+            
+            // Son çare: exception türüne göre genel mesaj
+            else -> {
+                when (exception::class.simpleName) {
+                    "SecurityException" -> "Güvenlik hatası. Uygulama izinlerini kontrol edin."
+                    "IllegalStateException" -> "Uygulama durumu geçersiz. Uygulamayı yeniden başlatın."
+                    "IllegalArgumentException" -> "Geçersiz veri formatı."
+                    "NullPointerException" -> "Veri hatası oluştu. Uygulamayı yeniden başlatın."
+                    "CancellationException" -> "İşlem iptal edildi."
+                    "TimeoutException" -> "İşlem zaman aşımına uğradı. Tekrar deneyin."
+                    else -> {
+                        if (isBackup) {
+                            "Yedekleme sırasında beklenmeyen bir hata oluştu. Ağ bağlantınızı kontrol edip tekrar deneyin."
+                        } else {
+                            "Geri yükleme sırasında beklenmeyen bir hata oluştu. Yedek dosyanızı ve ağ bağlantınızı kontrol edin."
+                        }
+                    }
+                }
+            }
+        }
     }
 }
