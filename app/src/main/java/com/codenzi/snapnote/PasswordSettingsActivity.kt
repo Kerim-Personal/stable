@@ -9,10 +9,10 @@ import android.view.View
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
-import com.google.android.gms.auth.api.signin.GoogleSignIn // HATA İÇİN EKLENDİ
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
@@ -20,6 +20,7 @@ import com.codenzi.snapnote.databinding.ActivityPasswordSettingsBinding
 import com.google.android.gms.auth.api.identity.GetSignInIntentRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.ApiException
+import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.gson.Gson
 import dagger.hilt.android.AndroidEntryPoint
@@ -45,6 +46,10 @@ class PasswordSettingsActivity : AppCompatActivity() {
     private var progressTitle: TextView? = null
     private var progressPercentage: TextView? = null
 
+    // YEDEKLEME AKIŞI İÇİN GEREKLİ DEĞİŞKENLER
+    private var googleDriveManager: GoogleDriveManager? = null
+
+    // Google ile giriş sonucunu yakalar
     private val googleSignInLauncher = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
@@ -52,9 +57,23 @@ class PasswordSettingsActivity : AppCompatActivity() {
             handleSignInResult(result.data)
         } else {
             Toast.makeText(this, "Google ile oturum açma iptal edildi. Parola değişikliği yedeklenemedi.", Toast.LENGTH_LONG).show()
-            finish()
+            finish() // Kullanıcı giriş yapmazsa aktiviteyi kapat
         }
     }
+
+    // Google Drive için ek izin gerektiğinde tetiklenir
+    private val requestAuthorizationLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                Log.i("PasswordSettings", "Google Drive izni başarıyla verildi. Yedekleme yeniden deneniyor.")
+                // İzin alındıktan sonra yedeklemeyi tekrar tetikle
+                googleDriveManager?.let { performAutomaticBackup(it) }
+            } else {
+                Log.w("PasswordSettings", "Kullanıcı Google Drive iznini reddetti.")
+                Toast.makeText(this, "Parola değişikliği yedeklenemedi: Gerekli izin verilmedi.", Toast.LENGTH_LONG).show()
+                finish()
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeManager.applyTheme(this)
@@ -123,8 +142,6 @@ class PasswordSettingsActivity : AppCompatActivity() {
         PasswordManager.setPasswordAndSecurityQuestion(newPassword, securityQuestion, securityAnswer)
         Toast.makeText(this, getString(R.string.password_set_success), Toast.LENGTH_SHORT).show()
 
-        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        // Düzeltme: `auto_backup_on_pass_change` anahtarı preferences.xml'de olmadığı için kontrol kaldırıldı, direkt sor.
         showBackupConfirmationDialog()
     }
 
@@ -159,11 +176,8 @@ class PasswordSettingsActivity : AppCompatActivity() {
             binding.tilCurrentPassword.error = getString(R.string.current_password_incorrect_error)
             return
         }
-        // Düzeltme: `clearPassword` yerine `disablePassword` kullanılıyor.
         PasswordManager.disablePassword()
         Toast.makeText(this, getString(R.string.password_disabled_success), Toast.LENGTH_SHORT).show()
-
-        // Şifre kaldırıldıktan sonra da yedekleme sorusu gösteriliyor.
         showBackupConfirmationDialog()
     }
 
@@ -196,28 +210,40 @@ class PasswordSettingsActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val credential = Identity.getSignInClient(this@PasswordSettingsActivity).getSignInCredentialFromIntent(data)
-
-                // Google'dan gelen kimlik bilgisini doğrudan kullanalım
                 val googleCredential = GoogleAccountCredential.usingOAuth2(
                     this@PasswordSettingsActivity,
-                    setOf("https://www.googleapis.com/auth/drive.appdata")
-                ).apply {
-                    selectedAccount = credential.googleIdToken?.let { com.google.android.gms.auth.api.signin.GoogleSignInAccount.createDefault() }?.account // Bu satırda hata olabilir. credential.account kullanılmalı.
-                }
-                // Düzeltme: credential'dan gelen account bilgisini doğrudan kullanalım.
-                val signInAccount = GoogleSignIn.getSignedInAccountFromIntent(data).getResult(ApiException::class.java)
-                googleCredential.selectedAccount = signInAccount.account
+                    listOf("https://www.googleapis.com/auth/drive.appdata")
+                )
+                googleCredential.selectedAccountName = credential.id
 
-                val googleDriveManager = GoogleDriveManager(googleCredential)
+                // GoogleDriveManager'ı oluştur ve sınıf değişkenine ata
+                this@PasswordSettingsActivity.googleDriveManager = GoogleDriveManager(googleCredential)
 
                 // Yedekleme işlemini başlat
-                val notesToBackup = noteDao.getAllNotes().first()
-                proceedWithFullBackup(googleDriveManager, notesToBackup)
+                performAutomaticBackup(googleDriveManager!!)
 
             } catch (e: ApiException) {
                 Log.w("PasswordSettings", "handleSignInResult:failed code=" + e.statusCode, e)
+                Toast.makeText(this@PasswordSettingsActivity, "Google ile oturum açılamadı. Parola değişikliği yedeklenemedi.", Toast.LENGTH_LONG).show()
+                finish()
+            }
+        }
+    }
+
+    private fun performAutomaticBackup(manager: GoogleDriveManager) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val notesToBackup = noteDao.getAllNotes().first()
+                proceedWithFullBackup(manager, notesToBackup)
+            } catch (e: UserRecoverableAuthIOException) {
+                // KRİTİK DÜZELTME: İzin hatası burada yakalanıyor
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@PasswordSettingsActivity, "Google ile oturum açılamadı. Parola değişikliği yedeklenemedi.", Toast.LENGTH_LONG).show()
+                    Log.w("PasswordSettings", "Yedekleme için ek Google Drive izni gerekiyor.", e)
+                    requestAuthorizationLauncher.launch(e.intent)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@PasswordSettingsActivity, "Yedekleme sırasında hata: ${e.message}", Toast.LENGTH_LONG).show()
                     finish()
                 }
             }
@@ -241,6 +267,7 @@ class PasswordSettingsActivity : AppCompatActivity() {
                 widgetBackgroundSelection = sharedPrefs.getString("widget_background_selection", "widget_background")
             )
 
+            // YENİ VE GÜNCEL GÜVENLİK BİLGİLERİ ALINIYOR
             val passwordHash = PasswordManager.getPasswordHash()
             val salt = PasswordManager.getSalt()
             val securityQuestion = PasswordManager.getSecurityQuestion()
@@ -311,11 +338,7 @@ class PasswordSettingsActivity : AppCompatActivity() {
                     }
                 }
                 is DriveResult.Error -> {
-                    withContext(Dispatchers.Main) {
-                        dismissProgressDialog()
-                        Toast.makeText(this@PasswordSettingsActivity, getString(R.string.password_change_backup_fail), Toast.LENGTH_LONG).show()
-                        finish()
-                    }
+                    throw result.exception
                 }
             }
         } catch (e: Exception) {
