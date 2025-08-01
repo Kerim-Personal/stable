@@ -19,3 +19,5 @@ local.properties
 
 # Firebase yapılandırma dosyasını yoksay
 /app/google-services.json
+/.idea/deploymentTargetSelector.xml
+/.idea/appInsightsSettings.xml
