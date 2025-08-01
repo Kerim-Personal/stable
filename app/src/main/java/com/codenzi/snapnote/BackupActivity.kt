@@ -23,7 +23,6 @@ import com.codenzi.snapnote.databinding.ActivityBackupBinding
 import com.google.android.gms.auth.api.identity.GetSignInIntentRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.ApiException
-// YENİ IMPORT 👇
 import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.gson.Gson
@@ -57,7 +56,10 @@ class BackupActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityBackupBinding
 
+    // GÜNCELLEME: Bu değişkenleri sınıf seviyesine taşıdık.
     private var requestedAction: Action? = null
+    private var googleDriveManager: GoogleDriveManager? = null
+
     private enum class Action { BACKUP, RESTORE, DELETE, EXPORT_LOCAL, IMPORT_LOCAL }
 
     private var progressDialog: AlertDialog? = null
@@ -75,20 +77,26 @@ class BackupActivity : AppCompatActivity() {
         }
     }
 
-    // YENİ EKLENEN KOD: Kullanıcıdan ek izin istemek için. 👇
+    // GÜNCELLEME: Launcher artık tekrar giriş yapmak yerine son işlemi tetikliyor.
     private val requestAuthorizationLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
-                // Kullanıcı izni verdi, son istenen işlemi yeniden dene.
-                Log.i("BackupActivity", "Google Drive izni başarıyla verildi. İşlem yeniden başlatılıyor.")
-                signInToGoogle() // işlemi baştan tetikleyerek taze credential alıyoruz.
+                Log.i("BackupActivity", "Google Drive izni başarıyla verildi. İşlem kaldığı yerden devam ediyor.")
+                // Tekrar giriş yaptırmak yerine, son istenen işlemi yeniden çalıştır.
+                googleDriveManager?.let { manager ->
+                    lifecycleScope.launch {
+                        when (requestedAction) {
+                            Action.BACKUP -> backupNotes(manager)
+                            Action.RESTORE -> restoreNotes(manager)
+                            else -> Log.w("BackupActivity", "İzin sonrası beklenmedik eylem: $requestedAction")
+                        }
+                    }
+                }
             } else {
-                // Kullanıcı izni reddetti.
                 Log.w("BackupActivity", "Kullanıcı Google Drive iznini reddetti.")
                 Toast.makeText(this, "Yedekleme için gerekli izin verilmedi.", Toast.LENGTH_LONG).show()
             }
         }
-    // YENİ KODUN SONU
 
     private lateinit var localBackupCreator: ActivityResultLauncher<String>
     private lateinit var localBackupSelector: ActivityResultLauncher<Array<String>>
@@ -362,6 +370,7 @@ class BackupActivity : AppCompatActivity() {
                     val sourceFile = File(tempDir, fileName)
                     if (sourceFile.exists()) {
                         val permanentDir = getExternalFilesDir("Images")!!
+                        permanentDir.mkdirs()
                         val permanentFile = File(permanentDir, fileName)
                         sourceFile.copyTo(permanentFile, overwrite = true)
                         newImagePath = permanentFile.absolutePath
@@ -372,6 +381,7 @@ class BackupActivity : AppCompatActivity() {
                     val sourceFile = File(tempDir, fileName)
                     if(sourceFile.exists()){
                         val permanentDir = getExternalFilesDir("AudioNotes")!!
+                        permanentDir.mkdirs()
                         val permanentFile = File(permanentDir, fileName)
                         sourceFile.copyTo(permanentFile, overwrite = true)
                         newAudioPath = permanentFile.absolutePath
@@ -435,6 +445,19 @@ class BackupActivity : AppCompatActivity() {
     }
 
     private fun signInToGoogle() {
+        // Zaten bir GoogleDriveManager'ımız varsa, tekrar giriş yapmaya gerek yok.
+        if (googleDriveManager != null) {
+            lifecycleScope.launch {
+                when (requestedAction) {
+                    Action.BACKUP -> backupNotes(googleDriveManager!!)
+                    Action.RESTORE -> restoreNotes(googleDriveManager!!)
+                    Action.DELETE -> performAccountDeletion(googleDriveManager!!)
+                    else -> {}
+                }
+            }
+            return
+        }
+
         lifecycleScope.launch {
             val signInClient = Identity.getSignInClient(this@BackupActivity)
             val request = GetSignInIntentRequest.builder()
@@ -459,12 +482,13 @@ class BackupActivity : AppCompatActivity() {
                     listOf("https://www.googleapis.com/auth/drive.appdata")
                 )
                 googleCredential.selectedAccountName = credential.id
-                val googleDriveManager = GoogleDriveManager(googleCredential)
+                // Sınıf seviyesindeki değişkene atama yapılıyor.
+                this@BackupActivity.googleDriveManager = GoogleDriveManager(googleCredential)
 
                 when (requestedAction) {
-                    Action.BACKUP -> backupNotes(googleDriveManager)
-                    Action.RESTORE -> restoreNotes(googleDriveManager)
-                    Action.DELETE -> performAccountDeletion(googleDriveManager)
+                    Action.BACKUP -> backupNotes(googleDriveManager!!)
+                    Action.RESTORE -> restoreNotes(googleDriveManager!!)
+                    Action.DELETE -> performAccountDeletion(googleDriveManager!!)
                     else -> {}
                 }
             } catch (e: ApiException) {
@@ -509,7 +533,6 @@ class BackupActivity : AppCompatActivity() {
         }
     }
 
-    // GÜNCELLENEN FONKSİYON 👇
     private fun backupNotes(googleDriveManager: GoogleDriveManager) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -673,7 +696,6 @@ class BackupActivity : AppCompatActivity() {
         }
     }
 
-    // GÜNCELLENEN FONKSİYON 👇
     private fun restoreNotes(googleDriveManager: GoogleDriveManager) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -902,13 +924,12 @@ class BackupActivity : AppCompatActivity() {
             progressBar?.isIndeterminate = false
         }
 
+        val restoredNotes = mutableListOf<Note>()
+        var isDownloadSuccessful = true
+
         try {
             val notesFromBackup = backupData.notes
-            val restoredNotes = mutableListOf<Note>()
-            val tempFiles = mutableListOf<File>()
             val totalSteps = notesFromBackup.size + 1
-
-            var isDownloadSuccessful = true
 
             notesFromBackup.forEachIndexed { index, note ->
                 if (!isDownloadSuccessful) return@forEachIndexed
@@ -916,12 +937,13 @@ class BackupActivity : AppCompatActivity() {
                 val content = gson.fromJson(note.content, NoteContent::class.java)
                 var localImagePath: String? = null
                 content.imagePath?.let { driveId ->
-                    val imageFile = createImageFile()
-                    val outputStream = FileOutputStream(imageFile)
-                    when(val result = googleDriveManager.downloadMediaFile(driveId, outputStream)) {
+                    val imageDir = getExternalFilesDir("Images")!!
+                    imageDir.mkdirs()
+                    val imageFile = File(imageDir, "IMG_RESTORED_${System.currentTimeMillis()}.jpg")
+
+                    when(val result = googleDriveManager.downloadMediaFile(driveId, FileOutputStream(imageFile))) {
                         is DriveResult.Success -> {
                             localImagePath = imageFile.absolutePath
-                            tempFiles.add(imageFile)
                         }
                         is DriveResult.Error -> {
                             isDownloadSuccessful = false
@@ -929,14 +951,16 @@ class BackupActivity : AppCompatActivity() {
                         }
                     }
                 }
+
                 var localAudioPath: String? = null
                 content.audioFilePath?.let { driveId ->
-                    val audioFile = createAudioFile()
-                    val outputStream = FileOutputStream(audioFile)
-                    when(val result = googleDriveManager.downloadMediaFile(driveId, outputStream)) {
+                    val audioDir = getExternalFilesDir("AudioNotes")!!
+                    audioDir.mkdirs()
+                    val audioFile = File(audioDir, "AUD_RESTORED_${System.currentTimeMillis()}.mp3")
+
+                    when(val result = googleDriveManager.downloadMediaFile(driveId, FileOutputStream(audioFile))) {
                         is DriveResult.Success -> {
                             localAudioPath = audioFile.absolutePath
-                            tempFiles.add(audioFile)
                         }
                         is DriveResult.Error -> {
                             isDownloadSuccessful = false
@@ -944,6 +968,7 @@ class BackupActivity : AppCompatActivity() {
                         }
                     }
                 }
+
                 val finalContent = content.copy(imagePath = localImagePath, audioFilePath = localAudioPath)
                 restoredNotes.add(note.copy(content = gson.toJson(finalContent)))
 
@@ -976,42 +1001,20 @@ class BackupActivity : AppCompatActivity() {
                     finish()
                 }
             } else {
-                tempFiles.forEach { it.delete() }
                 throw IOException("Medya dosyası indirilemedi, işlem iptal edildi.")
             }
 
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
                 dismissProgressDialog()
-                showError(getString(R.string.restore_failed_with_error, e.message), e)
+                showError(getString(R.string.restore_failed_with_error, e.localizedMessage), e)
             }
         }
     }
 
-    @Throws(IOException::class)
-    private fun createImageFile(): File {
-        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val storageDir: File = getExternalFilesDir("RestoredImages") ?: filesDir
-        storageDir.mkdirs()
-        return File.createTempFile("IMG_${timeStamp}_", ".jpg", storageDir)
-    }
-
-    @Throws(IOException::class)
-    private fun createAudioFile(): File {
-        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val storageDir: File = getExternalFilesDir("RestoredAudio") ?: filesDir
-        storageDir.mkdirs()
-        return File.createTempFile("AUD_${timeStamp}_", ".mp3", storageDir)
-    }
-
     private suspend fun showError(message: String, e: Exception) {
         withContext(Dispatchers.Main) {
-            val finalMessage = if (e.message != null) {
-                getString(R.string.restore_failed_with_error, e.message)
-            } else {
-                message
-            }
-            Toast.makeText(this@BackupActivity, finalMessage, Toast.LENGTH_LONG).show()
+            Toast.makeText(this@BackupActivity, message, Toast.LENGTH_LONG).show()
             Log.e("BackupActivity", message, e)
         }
     }
