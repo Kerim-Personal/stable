@@ -512,6 +512,11 @@ class BackupActivity : AppCompatActivity() {
                 googleCredential.selectedAccountName = credential.id
                 this@BackupActivity.googleDriveManager = GoogleDriveManager(googleCredential)
 
+                // Show email
+                binding.tvAccountEmail.text = credential.id
+                binding.layoutAccountInfo.visibility = View.VISIBLE
+
+
                 when (requestedAction) {
                     Action.BACKUP -> backupNotes(googleDriveManager!!)
                     Action.RESTORE -> restoreNotes(googleDriveManager!!)
