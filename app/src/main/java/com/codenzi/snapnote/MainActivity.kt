@@ -94,7 +94,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.notes.collect { notes ->
-                    noteAdapter.updateNotes(notes) // Bu metod artık submitList kullanıyor.
+                    noteAdapter.submitList(notes) // <-- DOĞRU KOD BU
                     binding.tvEmptyNotes.visibility = if (notes.isEmpty()) View.VISIBLE else View.GONE
                     binding.rvNotes.visibility = if (notes.isEmpty()) View.GONE else View.VISIBLE
                 }

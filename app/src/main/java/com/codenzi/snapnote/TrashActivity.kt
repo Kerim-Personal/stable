@@ -93,7 +93,7 @@ class TrashActivity : AppCompatActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 noteDao.getDeletedNotes().collect { notes ->
-                    deletedNoteAdapter.updateNotes(notes)
+                    deletedNoteAdapter.submitList(notes)
                     if (notes.isEmpty()) {
                         binding.tvEmptyTrash.visibility = View.VISIBLE
                         binding.rvDeletedNotes.visibility = View.GONE

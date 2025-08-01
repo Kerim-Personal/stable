@@ -21,7 +21,7 @@ import coil.load
 import com.google.android.material.card.MaterialCardView
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
-import java.io.File
+import java.io.File // Bu satır artık resim yükleme için gerekli değil ama URI'ye çevrilmeyen eski yollar için kalabilir.
 
 class NoteAdapter(
     private val clickListener: (Note) -> Unit,
@@ -113,12 +113,18 @@ class NoteAdapter(
 
                 noteImage.isVisible = content.imagePath != null
                 content.imagePath?.let { path ->
-                    val dataToLoad: Any = if (path.startsWith("content://")) Uri.parse(path) else File(path)
-                    noteImage.load(dataToLoad) {
+                    // =============================================================
+                    // *** İŞTE YAPILAN KRİTİK DEĞİŞİKLİK BURASI ***
+                    // Eski hatalı kod kaldırıldı. Artık gelen 'path' string'i
+                    // doğrudan Uri nesnesine çevriliyor. Coil kütüphanesi
+                    // hem "file://" hem de "content://" şemalarını doğru işler.
+                    val imageUri = Uri.parse(path)
+                    noteImage.load(imageUri) { // 'dataToLoad' yerine 'imageUri' kullanılıyor
                         crossfade(true)
                         placeholder(R.drawable.ic_image_24)
                         error(R.drawable.ic_image_24)
                     }
+                    // =============================================================
                 }
 
                 audioPlayerPreview.isVisible = content.audioFilePath != null
@@ -135,17 +141,14 @@ class NoteAdapter(
                 checklistSummary.visibility = View.GONE
             }
 
-            // --- YENİ DİNAMİK RENK ATAMASI ---
             if (selectedItems.contains(note.id)) {
                 cardContainer.strokeWidth = 8
-                // Mevcut temadan 'colorPrimary' özniteliğinin rengini alıyoruz.
                 val typedValue = TypedValue()
                 cardContainer.context.theme.resolveAttribute(com.google.android.material.R.attr.colorPrimary, typedValue, true)
                 cardContainer.strokeColor = typedValue.data
             } else {
                 cardContainer.strokeWidth = 0
             }
-            // --- DEĞİŞİKLİK SONU ---
 
             itemView.setOnClickListener { clickListener(note) }
             itemView.setOnLongClickListener { longClickListener(note) }
@@ -159,10 +162,6 @@ class NoteAdapter(
 
     override fun onBindViewHolder(holder: NoteViewHolder, position: Int) {
         holder.bind(getItem(position))
-    }
-
-    fun updateNotes(newNotes: List<Note>) {
-        submitList(newNotes)
     }
 }
 
