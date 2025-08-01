@@ -70,10 +70,11 @@ android {
 }
 
 dependencies {
-    // GÜNCELLEME: Hilt bağımlılıkları `libs` üzerinden çağrılıyor.
+    // Hilt bağımlılıkları
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
+    // AndroidX ve diğer temel kütüphaneler
     implementation(libs.androidx.security.crypto)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.room.runtime)
@@ -84,26 +85,42 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
     implementation(libs.androidx.preference.ktx)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.credentials)
+
+    // Coroutines
     implementation(libs.kotlinx.coroutines.android)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
-    implementation(libs.androidx.work.runtime.ktx)
+
+    // KameraX
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
+
+    // Görüntüleme ve Test
     implementation(libs.coil)
     implementation(libs.photoview)
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+
+    // Google API ve Servisleri
     implementation(libs.google.play.services.auth)
     implementation(libs.gson)
     implementation(libs.google.api.client)
-    implementation(libs.google.oauth.client)
     implementation(libs.google.api.client.android)
-    implementation(libs.google.http.client.android)
     implementation(libs.google.api.services.drive)
+
+    // --- DEĞİŞEN SATIRLAR ---
+    // Önceki: implementation(libs.google.oauth.client)
+    implementation(libs.google.oauth.client.jetty) // Düzeltilmiş ✅
+
+    // Önceki: implementation(libs.google.http.client.android)
+    implementation(libs.google.http.client.gson) // Düzeltilmiş ✅
+    // --- DEĞİŞİKLİKLERİN SONU ---
+
+    // Serileştirme
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
-    implementation(libs.androidx.credentials)
 }

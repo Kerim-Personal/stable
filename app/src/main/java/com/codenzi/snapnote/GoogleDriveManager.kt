@@ -63,6 +63,7 @@ class GoogleDriveManager(private val credential: GoogleAccountCredential) {
      * @param fileName Aranacak dosyanın adı.
      * @return Dosya bulunduysa [DriveResult.Success] içinde [File] nesnesi, aksi halde [DriveResult.Error] döner.
      */
+// Düzeltilmiş ve Güçlendirilmiş Kod
     private suspend fun findFile(fileName: String): DriveResult<File?> = withContext(Dispatchers.IO) {
         try {
             val files = drive.files().list()
@@ -72,15 +73,7 @@ class GoogleDriveManager(private val credential: GoogleAccountCredential) {
                 .execute()
                 .files
             DriveResult.Success(files.firstOrNull())
-        } catch (e: GoogleJsonResponseException) {
-            // Özellikle "dosya bulunamadı" (404) hatası bir istisna değil, beklenen bir durum olabilir.
-            if (e.statusCode == 404) {
-                DriveResult.Success(null)
-            } else {
-                Log.e(TAG, "Dosya aranırken API hatası: $fileName", e)
-                DriveResult.Error(e)
-            }
-        } catch (e: IOException) {
+        } catch (e: Exception) { // ARTIK TÜM HATALAR YAKALANIYOR
             Log.e(TAG, "Dosya arama başarısız: $fileName", e)
             DriveResult.Error(e)
         }

@@ -23,6 +23,8 @@ import com.codenzi.snapnote.databinding.ActivityBackupBinding
 import com.google.android.gms.auth.api.identity.GetSignInIntentRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.ApiException
+// YENİ IMPORT 👇
+import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -72,6 +74,21 @@ class BackupActivity : AppCompatActivity() {
             Toast.makeText(this, getString(R.string.google_sign_in_cancelled), Toast.LENGTH_SHORT).show()
         }
     }
+
+    // YENİ EKLENEN KOD: Kullanıcıdan ek izin istemek için. 👇
+    private val requestAuthorizationLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                // Kullanıcı izni verdi, son istenen işlemi yeniden dene.
+                Log.i("BackupActivity", "Google Drive izni başarıyla verildi. İşlem yeniden başlatılıyor.")
+                signInToGoogle() // işlemi baştan tetikleyerek taze credential alıyoruz.
+            } else {
+                // Kullanıcı izni reddetti.
+                Log.w("BackupActivity", "Kullanıcı Google Drive iznini reddetti.")
+                Toast.makeText(this, "Yedekleme için gerekli izin verilmedi.", Toast.LENGTH_LONG).show()
+            }
+        }
+    // YENİ KODUN SONU
 
     private lateinit var localBackupCreator: ActivityResultLauncher<String>
     private lateinit var localBackupSelector: ActivityResultLauncher<Array<String>>
@@ -492,6 +509,7 @@ class BackupActivity : AppCompatActivity() {
         }
     }
 
+    // GÜNCELLENEN FONKSİYON 👇
     private fun backupNotes(googleDriveManager: GoogleDriveManager) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -504,8 +522,15 @@ class BackupActivity : AppCompatActivity() {
                     return@launch
                 }
 
+                withContext(Dispatchers.Main) {
+                    showProgressDialog(R.string.searching_for_backups)
+                }
+
                 when (val result = googleDriveManager.getBackupFiles()) {
                     is DriveResult.Success -> {
+                        withContext(Dispatchers.Main){
+                            dismissProgressDialog()
+                        }
                         val existingBackup = result.data.firstOrNull()
                         withContext(Dispatchers.Main) {
                             if (existingBackup != null) {
@@ -527,10 +552,20 @@ class BackupActivity : AppCompatActivity() {
                         }
                     }
                     is DriveResult.Error -> {
-                        showError("Error during backup check", result.exception)
+                        throw result.exception
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: UserRecoverableAuthIOException) {
+                withContext(Dispatchers.Main) {
+                    dismissProgressDialog()
+                    Log.w("BackupActivity", "Google Drive izni gerekli. Kullanıcı onayı isteniyor.", e)
+                    requestAuthorizationLauncher.launch(e.intent)
+                }
+            }
+            catch (e: Exception) {
+                withContext(Dispatchers.Main){
+                    dismissProgressDialog()
+                }
                 showError("Error during backup check", e)
             }
         }
@@ -638,6 +673,7 @@ class BackupActivity : AppCompatActivity() {
         }
     }
 
+    // GÜNCELLENEN FONKSİYON 👇
     private fun restoreNotes(googleDriveManager: GoogleDriveManager) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -689,7 +725,14 @@ class BackupActivity : AppCompatActivity() {
                     }
                     is DriveResult.Error -> throw filesResult.exception
                 }
-            } catch (e: Exception) {
+            } catch (e: UserRecoverableAuthIOException) {
+                withContext(Dispatchers.Main) {
+                    dismissProgressDialog()
+                    Log.w("BackupActivity", "Google Drive izni gerekli. Kullanıcı onayı isteniyor.", e)
+                    requestAuthorizationLauncher.launch(e.intent)
+                }
+            }
+            catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     dismissProgressDialog()
                 }
