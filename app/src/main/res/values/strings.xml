@@ -307,6 +307,10 @@
     <string name="disable_button">Disable</string>
     <string name="security_question_and_answer">Security Question and Answer</string>
 
+    <string name="upload_in_progress">Uploading to Drive…</string>
+    <string name="upload_successful">Backup successfully uploaded to Drive!</string>
+    <string name="upload_failed">Upload to Drive failed</string>
+
 
 
 </resources>

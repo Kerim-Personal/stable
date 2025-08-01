@@ -64,20 +64,21 @@ class GoogleDriveManager(private val credential: GoogleAccountCredential) {
      * @return Dosya bulunduysa [DriveResult.Success] içinde [File] nesnesi, aksi halde [DriveResult.Error] döner.
      */
 // Düzeltilmiş ve Güçlendirilmiş Kod
-    private suspend fun findFile(fileName: String): DriveResult<File?> = withContext(Dispatchers.IO) {
-        try {
-            val files = drive.files().list()
-                .setSpaces(APPDATA_FOLDER)
-                .setQ("name = '$fileName'")
-                .setFields("files(id, name)")
-                .execute()
-                .files
-            DriveResult.Success(files.firstOrNull())
-        } catch (e: Exception) { // ARTIK TÜM HATALAR YAKALANIYOR
-            Log.e(TAG, "Dosya arama başarısız: $fileName", e)
-            DriveResult.Error(e)
+    private suspend fun findFile(fileName: String): DriveResult<File?> =
+        withContext(Dispatchers.IO) {
+            try {
+                val files = drive.files().list()
+                    .setSpaces(APPDATA_FOLDER)
+                    .setQ("name = '$fileName'")
+                    .setFields("files(id, name)")
+                    .execute()
+                    .files
+                DriveResult.Success(files.firstOrNull())
+            } catch (e: Exception) { // ARTIK TÜM HATALAR YAKALANIYOR
+                Log.e(TAG, "Dosya arama başarısız: $fileName", e)
+                DriveResult.Error(e)
+            }
         }
-    }
 
     /**
      * JSON formatındaki yedekleme verisini Google Drive'a yükler.
@@ -87,26 +88,29 @@ class GoogleDriveManager(private val credential: GoogleAccountCredential) {
      * @param content Yüklenecek JSON içeriği.
      * @return Başarılı olursa [DriveResult.Success] içinde dosya ID'si, aksi halde [DriveResult.Error] döner.
      */
-    suspend fun uploadJsonBackup(fileName: String, content: String): DriveResult<String> = withContext(Dispatchers.IO) {
-        try {
-            val metadata = File().apply { name = fileName }
-            val contentStream = ByteArrayContent(JSON_MIME_TYPE, content.toByteArray())
+    suspend fun uploadJsonBackup(fileName: String, content: String): DriveResult<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                val metadata = File().apply { name = fileName }
+                val contentStream = ByteArrayContent(JSON_MIME_TYPE, content.toByteArray())
 
-            val existingFileResult = findFile(fileName)
-            val fileId = if (existingFileResult is DriveResult.Success && existingFileResult.data != null) {
-                // Dosya var, güncelle
-                drive.files().update(existingFileResult.data.id, metadata, contentStream).execute().id
-            } else {
-                // Dosya yok, oluştur
-                metadata.parents = listOf(APPDATA_FOLDER)
-                drive.files().create(metadata, contentStream).setFields("id").execute().id
+                val existingFileResult = findFile(fileName)
+                val fileId =
+                    if (existingFileResult is DriveResult.Success && existingFileResult.data != null) {
+                        // Dosya var, güncelle
+                        drive.files().update(existingFileResult.data.id, metadata, contentStream)
+                            .execute().id
+                    } else {
+                        // Dosya yok, oluştur
+                        metadata.parents = listOf(APPDATA_FOLDER)
+                        drive.files().create(metadata, contentStream).setFields("id").execute().id
+                    }
+                DriveResult.Success(fileId)
+            } catch (e: Exception) {
+                Log.e(TAG, "JSON yedekleme yüklemesi başarısız oldu.", e)
+                DriveResult.Error(e)
             }
-            DriveResult.Success(fileId)
-        } catch (e: Exception) {
-            Log.e(TAG, "JSON yedekleme yüklemesi başarısız oldu.", e)
-            DriveResult.Error(e)
         }
-    }
 
     /**
      * Belirtilen dosya ID'sine sahip JSON yedek dosyasını Drive'dan indirir.
@@ -114,16 +118,17 @@ class GoogleDriveManager(private val credential: GoogleAccountCredential) {
      * @param fileId İndirilecek dosyanın ID'si.
      * @return Başarılı olursa [DriveResult.Success] içinde dosya içeriği (String), aksi halde [DriveResult.Error] döner.
      */
-    suspend fun downloadJsonBackup(fileId: String): DriveResult<String> = withContext(Dispatchers.IO) {
-        try {
-            val outputStream = ByteArrayOutputStream()
-            drive.files().get(fileId).executeMediaAndDownloadTo(outputStream)
-            DriveResult.Success(outputStream.toString("UTF-8"))
-        } catch (e: IOException) {
-            Log.e(TAG, "JSON yedek indirme başarısız oldu.", e)
-            DriveResult.Error(e)
+    suspend fun downloadJsonBackup(fileId: String): DriveResult<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                val outputStream = ByteArrayOutputStream()
+                drive.files().get(fileId).executeMediaAndDownloadTo(outputStream)
+                DriveResult.Success(outputStream.toString("UTF-8"))
+            } catch (e: IOException) {
+                Log.e(TAG, "JSON yedek indirme başarısız oldu.", e)
+                DriveResult.Error(e)
+            }
         }
-    }
 
     /**
      * `appDataFolder` içindeki tüm yedekleme dosyalarını, en yeniden eskiye sıralanmış şekilde listeler.
@@ -153,20 +158,21 @@ class GoogleDriveManager(private val credential: GoogleAccountCredential) {
      * @param mimeType Yüklenecek dosyanın MIME türü (örn: "image/jpeg").
      * @return Başarılı olursa [DriveResult.Success] içinde Drive'daki dosyanın ID'si, aksi halde [DriveResult.Error] döner.
      */
-    suspend fun uploadMediaFile(localFile: java.io.File, mimeType: String): DriveResult<String> = withContext(Dispatchers.IO) {
-        try {
-            val metadata = File().apply {
-                name = localFile.name
-                parents = listOf(APPDATA_FOLDER)
+    suspend fun uploadMediaFile(localFile: java.io.File, mimeType: String): DriveResult<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                val metadata = File().apply {
+                    name = localFile.name
+                    parents = listOf(APPDATA_FOLDER)
+                }
+                val mediaContent = FileContent(mimeType, localFile)
+                val file = drive.files().create(metadata, mediaContent).setFields("id").execute()
+                DriveResult.Success(file.id)
+            } catch (e: IOException) {
+                Log.e(TAG, "Medya dosyası yüklenemedi: ${localFile.name}", e)
+                DriveResult.Error(e)
             }
-            val mediaContent = FileContent(mimeType, localFile)
-            val file = drive.files().create(metadata, mediaContent).setFields("id").execute()
-            DriveResult.Success(file.id)
-        } catch (e: IOException) {
-            Log.e(TAG, "Medya dosyası yüklenemedi: ${localFile.name}", e)
-            DriveResult.Error(e)
         }
-    }
 
     /**
      * Drive'daki bir medya dosyasını cihazdaki belirtilen hedefe indirir.
@@ -175,7 +181,10 @@ class GoogleDriveManager(private val credential: GoogleAccountCredential) {
      * @param destinationStream İndirilen verinin yazılacağı `OutputStream`.
      * @return İşlem başarılıysa [DriveResult.Success] içinde `Unit`, aksi halde [DriveResult.Error] döner.
      */
-    suspend fun downloadMediaFile(fileId: String, destinationStream: OutputStream): DriveResult<Unit> = withContext(Dispatchers.IO) {
+    suspend fun downloadMediaFile(
+        fileId: String,
+        destinationStream: OutputStream
+    ): DriveResult<Unit> = withContext(Dispatchers.IO) {
         try {
             drive.files().get(fileId).executeMediaAndDownloadTo(destinationStream)
             DriveResult.Success(Unit)
@@ -193,20 +202,21 @@ class GoogleDriveManager(private val credential: GoogleAccountCredential) {
      */
     suspend fun deleteFile(fileName: String): DriveResult<Unit> = withContext(Dispatchers.IO) {
         try {
-            val fileResult = findFile(fileName)
-            if (fileResult is DriveResult.Success && fileResult.data != null) {
-                try {
-                    drive.files().delete(fileResult.data.id).execute()
-                } catch (e: GoogleJsonResponseException) {
-                    // Dosya zaten yoksa (404), bunu bir başarı olarak kabul et.
-                    if (e.statusCode != 404) {
-                        throw e
-                    }
-                }
+            // Önce dosyanın ID'sini bul.
+            val fileList = drive.files().list()
+                .setQ("name='$fileName' and 'appDataFolder' in parents")
+                .setSpaces("appDataFolder")
+                .execute()
+
+            if (fileList.files.isNotEmpty()) {
+                val fileId = fileList.files[0].id
+                // Dosya bulunduysa sil.
+                drive.files().delete(fileId).execute()
             }
+            // Dosya bulunamadıysa veya başarıyla silindiyse, işlem başarılıdır.
             DriveResult.Success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "$fileName dosyası silinemedi.", e)
+            Log.e(TAG, "'$fileName' silinirken hata oluştu.", e)
             DriveResult.Error(e)
         }
     }

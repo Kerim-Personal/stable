@@ -305,5 +305,8 @@
     <string name="backup_password_change_message">Parolanız değiştirildi. Google Drive yedeğinizi yeni parola bilgileriyle güncellemek ister misiniz?</string>
     <string name="disable_button">Devre dışı bırak</string>
     <string name="security_question_and_answer">Güvenlik Sorusu ve Cevabı</string>
+    <string name="upload_in_progress">Drive\'a Yükleniyor…</string>
+    <string name="upload_successful">Yedek, Drive\'a başarıyla yüklendi!</string>
+    <string name="upload_failed">Drive\'a yükleme başarısız oldu</string>
 
 </resources>

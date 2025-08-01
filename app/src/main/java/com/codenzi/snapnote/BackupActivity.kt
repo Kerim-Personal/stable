@@ -39,6 +39,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -56,7 +57,6 @@ class BackupActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityBackupBinding
 
-    // GÜNCELLEME: Bu değişkenleri sınıf seviyesine taşıdık.
     private var requestedAction: Action? = null
     private var googleDriveManager: GoogleDriveManager? = null
 
@@ -77,12 +77,10 @@ class BackupActivity : AppCompatActivity() {
         }
     }
 
-    // GÜNCELLEME: Launcher artık tekrar giriş yapmak yerine son işlemi tetikliyor.
     private val requestAuthorizationLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 Log.i("BackupActivity", "Google Drive izni başarıyla verildi. İşlem kaldığı yerden devam ediyor.")
-                // Tekrar giriş yaptırmak yerine, son istenen işlemi yeniden çalıştır.
                 googleDriveManager?.let { manager ->
                     lifecycleScope.launch {
                         when (requestedAction) {
@@ -113,7 +111,7 @@ class BackupActivity : AppCompatActivity() {
 
         localBackupCreator = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
             uri?.let {
-                lifecycleScope.launch {
+                lifecycleScope.launch(Dispatchers.IO) {
                     exportToDevice(it)
                 }
             }
@@ -165,7 +163,14 @@ class BackupActivity : AppCompatActivity() {
             progressPercentage?.visibility = View.GONE
         }
 
+        val tempDir = File(cacheDir, "backup_temp")
+
         try {
+            if (tempDir.exists()) {
+                tempDir.deleteRecursively()
+            }
+            tempDir.mkdirs()
+
             val notesToBackup = noteDao.getAllNotes().first()
             if (notesToBackup.isEmpty()) {
                 withContext(Dispatchers.Main) {
@@ -175,40 +180,59 @@ class BackupActivity : AppCompatActivity() {
                 return
             }
 
-            val tempDir = File(cacheDir, "backup_temp").apply { mkdirs() }
             val filesToZip = mutableListOf<File>()
 
             val notesForJson = notesToBackup.map { note ->
                 val content = gson.fromJson(note.content, NoteContent::class.java)
                 var newImagePath: String? = null
+
                 content.imagePath?.let { path ->
                     try {
-                        val imageUri = Uri.parse(path)
-                        val fileName = imageUri.lastPathSegment ?: "image_${System.currentTimeMillis()}.jpg"
+                        val cleanPath = path.substringBefore("?timestamp=")
+                        val imageUri = Uri.parse(cleanPath)
+                        val fileName = "img_${note.id}_${System.currentTimeMillis()}.jpg"
                         val destFile = File(tempDir, fileName)
 
-                        contentResolver.openInputStream(imageUri)?.use { inputStream ->
-                            FileOutputStream(destFile).use { outputStream ->
-                                inputStream.copyTo(outputStream)
+                        val inputStream: InputStream? = if (imageUri.scheme == "content") {
+                            contentResolver.openInputStream(imageUri)
+                        } else {
+                            val sourceFile = File(imageUri.path!!)
+                            if (sourceFile.exists()) FileInputStream(sourceFile) else null
+                        }
+
+                        inputStream?.use { input ->
+                            FileOutputStream(destFile).use { output ->
+                                input.copyTo(output)
                             }
                         }
 
-                        if (destFile.exists()) {
+                        if (destFile.exists() && destFile.length() > 0) {
                             filesToZip.add(destFile)
                             newImagePath = destFile.name
+                        } else {
+                            Log.w("BackupActivity", "Görsel kopyalanamadı veya boş: $path")
                         }
                     } catch (e: Exception) {
                         Log.e("BackupActivity", "Yerel dışa aktarma için görsel işlenirken hata: $path", e)
                     }
                 }
+
                 var newAudioPath: String? = null
                 content.audioFilePath?.let { path ->
                     val sourceFile = File(path)
                     if (sourceFile.exists()) {
-                        val destFile = File(tempDir, sourceFile.name)
+                        val fileName = "aud_${note.id}_${sourceFile.name}"
+                        val destFile = File(tempDir, fileName)
                         sourceFile.copyTo(destFile, overwrite = true)
-                        filesToZip.add(destFile)
-                        newAudioPath = sourceFile.name
+
+                        if (destFile.exists() && destFile.length() > 0) {
+                            filesToZip.add(destFile)
+                            newAudioPath = destFile.name
+                        } else {
+                            Log.w("BackupActivity", "Ses dosyası kopyalanamadı veya boş: $path")
+                        }
+                    } else {
+                        Log.w("BackupActivity", "Ses dosyası bulunamadı: $path")
                     }
                 }
                 val newContent = content.copy(imagePath = newImagePath, audioFilePath = newAudioPath)
@@ -256,8 +280,6 @@ class BackupActivity : AppCompatActivity() {
                 }
             }
 
-            tempDir.deleteRecursively()
-
             withContext(Dispatchers.Main) {
                 dismissProgressDialog()
                 Toast.makeText(this@BackupActivity, getString(R.string.export_successful), Toast.LENGTH_LONG).show()
@@ -267,6 +289,11 @@ class BackupActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 dismissProgressDialog()
                 Toast.makeText(this@BackupActivity, getString(R.string.export_failed) + ": ${e.message}", Toast.LENGTH_LONG).show()
+            }
+            Log.e("BackupActivity", "exportToDevice failed", e)
+        } finally {
+            if (tempDir.exists()) {
+                tempDir.deleteRecursively()
             }
         }
     }
@@ -371,9 +398,9 @@ class BackupActivity : AppCompatActivity() {
                     if (sourceFile.exists()) {
                         val permanentDir = getExternalFilesDir("Images")!!
                         permanentDir.mkdirs()
-                        val permanentFile = File(permanentDir, fileName)
+                        val permanentFile = File(permanentDir, "img_restored_${System.currentTimeMillis()}_${note.id}.jpg")
                         sourceFile.copyTo(permanentFile, overwrite = true)
-                        newImagePath = permanentFile.absolutePath
+                        newImagePath = Uri.fromFile(permanentFile).toString() + "?timestamp=" + System.currentTimeMillis()
                     }
                 }
                 var newAudioPath: String? = null
@@ -382,13 +409,13 @@ class BackupActivity : AppCompatActivity() {
                     if(sourceFile.exists()){
                         val permanentDir = getExternalFilesDir("AudioNotes")!!
                         permanentDir.mkdirs()
-                        val permanentFile = File(permanentDir, fileName)
+                        val permanentFile = File(permanentDir, "aud_restored_${System.currentTimeMillis()}_${note.id}.mp3")
                         sourceFile.copyTo(permanentFile, overwrite = true)
                         newAudioPath = permanentFile.absolutePath
                     }
                 }
                 val newContent = content.copy(imagePath = newImagePath, audioFilePath = newAudioPath)
-                note.copy(content = gson.toJson(newContent))
+                note.copy(id = 0, content = gson.toJson(newContent))
             }
 
             noteDao.insertAll(restoredNotes)
@@ -445,7 +472,6 @@ class BackupActivity : AppCompatActivity() {
     }
 
     private fun signInToGoogle() {
-        // Zaten bir GoogleDriveManager'ımız varsa, tekrar giriş yapmaya gerek yok.
         if (googleDriveManager != null) {
             lifecycleScope.launch {
                 when (requestedAction) {
@@ -460,9 +486,11 @@ class BackupActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             val signInClient = Identity.getSignInClient(this@BackupActivity)
+
             val request = GetSignInIntentRequest.builder()
                 .setServerClientId(getString(R.string.your_web_client_id))
                 .build()
+
             try {
                 val result = signInClient.getSignInIntent(request).await()
                 googleSignInLauncher.launch(IntentSenderRequest.Builder(result).build())
@@ -482,7 +510,6 @@ class BackupActivity : AppCompatActivity() {
                     listOf("https://www.googleapis.com/auth/drive.appdata")
                 )
                 googleCredential.selectedAccountName = credential.id
-                // Sınıf seviyesindeki değişkene atama yapılıyor.
                 this@BackupActivity.googleDriveManager = GoogleDriveManager(googleCredential)
 
                 when (requestedAction) {
@@ -503,14 +530,15 @@ class BackupActivity : AppCompatActivity() {
 
     private fun performAccountDeletion(googleDriveManager: GoogleDriveManager) {
         lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                withContext(Dispatchers.Main) {
-                    showProgressDialog(R.string.delete_in_progress)
-                }
+            withContext(Dispatchers.Main) {
+                showProgressDialog(R.string.delete_in_progress)
+            }
 
+            try {
                 when (val deleteResult = googleDriveManager.deleteFile("snapnote_backup.json")) {
                     is DriveResult.Success -> {
                         Identity.getSignInClient(this@BackupActivity).signOut().await()
+                        this@BackupActivity.googleDriveManager = null
                         withContext(Dispatchers.Main) {
                             if (!DataWipeManager.wipeAllData(this@BackupActivity)) {
                                 dismissProgressDialog()
@@ -522,7 +550,6 @@ class BackupActivity : AppCompatActivity() {
                         throw deleteResult.exception
                     }
                 }
-
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     dismissProgressDialog()
@@ -601,7 +628,7 @@ class BackupActivity : AppCompatActivity() {
             progressBar?.isIndeterminate = false
         }
 
-        val tempDir = File(cacheDir, "backup_temp").apply { mkdirs() }
+        val tempDir = File(cacheDir, "backup_temp").apply { if (exists()) deleteRecursively(); mkdirs() }
 
         try {
             val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this)
@@ -623,13 +650,23 @@ class BackupActivity : AppCompatActivity() {
             for ((index, note) in notesToBackup.withIndex()) {
                 val content = gson.fromJson(note.content, NoteContent::class.java)
                 var imageDriveId: String? = null
+
                 content.imagePath?.let { path ->
                     try {
-                        val imageUri = Uri.parse(path)
-                        contentResolver.openInputStream(imageUri)?.use { inputStream ->
-                            val tempFile = File(tempDir, "temp_image_${System.currentTimeMillis()}.jpg")
-                            FileOutputStream(tempFile).use { outputStream ->
-                                inputStream.copyTo(outputStream)
+                        val cleanPath = path.substringBefore("?timestamp=")
+                        val imageUri = Uri.parse(cleanPath)
+                        val tempFile = File(tempDir, "temp_image_${System.currentTimeMillis()}.jpg")
+
+                        val inputStream: InputStream? = if (imageUri.scheme == "content") {
+                            contentResolver.openInputStream(imageUri)
+                        } else {
+                            val sourceFile = File(imageUri.path!!)
+                            if (sourceFile.exists()) FileInputStream(sourceFile) else null
+                        }
+
+                        inputStream?.use { input ->
+                            FileOutputStream(tempFile).use { output ->
+                                input.copyTo(output)
                             }
                             when (val result = googleDriveManager.uploadMediaFile(tempFile, "image/jpeg")) {
                                 is DriveResult.Success -> imageDriveId = result.data
@@ -637,7 +674,7 @@ class BackupActivity : AppCompatActivity() {
                             }
                         }
                     } catch (e: Exception) {
-                        Log.e("BackupActivity", "Görsel işlenirken hata oluştu: $path", e)
+                        Log.e("BackupActivity", "Drive'a yedekleme için görsel işlenirken hata oluştu: $path", e)
                     }
                 }
 
@@ -943,7 +980,7 @@ class BackupActivity : AppCompatActivity() {
 
                     when(val result = googleDriveManager.downloadMediaFile(driveId, FileOutputStream(imageFile))) {
                         is DriveResult.Success -> {
-                            localImagePath = imageFile.absolutePath
+                            localImagePath = imageFile.absolutePath + "?timestamp=" + System.currentTimeMillis()
                         }
                         is DriveResult.Error -> {
                             isDownloadSuccessful = false
