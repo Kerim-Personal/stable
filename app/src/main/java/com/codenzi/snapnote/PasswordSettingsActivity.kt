@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
+import com.google.android.gms.auth.api.signin.GoogleSignIn // HATA İÇİN EKLENDİ
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
@@ -195,31 +196,28 @@ class PasswordSettingsActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val credential = Identity.getSignInClient(this@PasswordSettingsActivity).getSignInCredentialFromIntent(data)
-                performAutomaticBackup(credential.id)
-            } catch (e: ApiException) {
-                Log.w("PasswordSettings", "handleSignInResult:failed code=" + e.statusCode, e)
-                Toast.makeText(this@PasswordSettingsActivity, "Google ile oturum açılamadı. Parola değişikliği yedeklenemedi.", Toast.LENGTH_LONG).show()
-                finish()
-            }
-        }
-    }
 
-    private fun performAutomaticBackup(accountId: String) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val credential = GoogleAccountCredential.usingOAuth2(
-                this@PasswordSettingsActivity,
-                listOf("https://www.googleapis.com/auth/drive.appdata")
-            )
-            credential.selectedAccountName = accountId
+                // Google'dan gelen kimlik bilgisini doğrudan kullanalım
+                val googleCredential = GoogleAccountCredential.usingOAuth2(
+                    this@PasswordSettingsActivity,
+                    setOf("https://www.googleapis.com/auth/drive.appdata")
+                ).apply {
+                    selectedAccount = credential.googleIdToken?.let { com.google.android.gms.auth.api.signin.GoogleSignInAccount.createDefault() }?.account // Bu satırda hata olabilir. credential.account kullanılmalı.
+                }
+                // Düzeltme: credential'dan gelen account bilgisini doğrudan kullanalım.
+                val signInAccount = GoogleSignIn.getSignedInAccountFromIntent(data).getResult(ApiException::class.java)
+                googleCredential.selectedAccount = signInAccount.account
 
-            val googleDriveManager = GoogleDriveManager(credential)
+                val googleDriveManager = GoogleDriveManager(googleCredential)
 
-            try {
+                // Yedekleme işlemini başlat
                 val notesToBackup = noteDao.getAllNotes().first()
                 proceedWithFullBackup(googleDriveManager, notesToBackup)
-            } catch (e: Exception) {
+
+            } catch (e: ApiException) {
+                Log.w("PasswordSettings", "handleSignInResult:failed code=" + e.statusCode, e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@PasswordSettingsActivity, "Yedekleme sırasında hata: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@PasswordSettingsActivity, "Google ile oturum açılamadı. Parola değişikliği yedeklenemedi.", Toast.LENGTH_LONG).show()
                     finish()
                 }
             }

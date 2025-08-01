@@ -72,6 +72,14 @@ class GoogleDriveManager(private val credential: GoogleAccountCredential) {
                 .execute()
                 .files
             DriveResult.Success(files.firstOrNull())
+        } catch (e: GoogleJsonResponseException) {
+            // Özellikle "dosya bulunamadı" (404) hatası bir istisna değil, beklenen bir durum olabilir.
+            if (e.statusCode == 404) {
+                DriveResult.Success(null)
+            } else {
+                Log.e(TAG, "Dosya aranırken API hatası: $fileName", e)
+                DriveResult.Error(e)
+            }
         } catch (e: IOException) {
             Log.e(TAG, "Dosya arama başarısız: $fileName", e)
             DriveResult.Error(e)

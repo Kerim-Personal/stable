@@ -296,7 +296,7 @@
     <string name="data_management_summary">Manage backup, restore, and account deletion operations.</string>
     <string name="about_category_title">About</string>
     <string name="local_backup_summary">Device storage</string>
-    <string name="your_web_client_id" translatable="false">115482441429-d7r1j5qm0v9081e9k9pnf94eit1suc91.apps.googleusercontent.com</string>
+    <string name="your_web_client_id" translatable="false">665785547355-i6ui5d8mqsk0085ruv4k4098ioqavtd5.apps.googleusercontent.com</string>
     <string name="an_unknown_error_occurred">An unknown error occurred</string>
     <string name="operation_failed_with_error">Operation failed: %s</string>
     <string name="logged_in_account_label">Logged In Account</string>
