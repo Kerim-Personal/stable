@@ -17,6 +17,7 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
 import com.codenzi.snapnote.databinding.ActivityBackupBinding
@@ -125,12 +126,40 @@ class BackupActivity : AppCompatActivity() {
             }
         }
 
+        updateAccountInfoUI() // EKRAN İLK AÇILDIĞINDA OTURUM BİLGİSİNİ KONTROL ET
         setupListeners()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateAccountInfoUI() // EKRANA GERİ DÖNÜLDÜĞÜNDE TEKRAR KONTROL ET
     }
 
     override fun onSupportNavigateUp(): Boolean {
         finish()
         return true
+    }
+
+    private fun updateAccountInfoUI() {
+        val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val email = sharedPrefs.getString("LOGGED_IN_EMAIL", null)
+
+        if (email != null) {
+            binding.layoutAccountInfo.visibility = View.VISIBLE
+            binding.tvAccountEmail.text = email
+            // Oturum açılmışsa, GoogleDriveManager'ı yeniden oluştur
+            if (googleDriveManager == null) {
+                val googleCredential = GoogleAccountCredential.usingOAuth2(
+                    this,
+                    listOf("https://www.googleapis.com/auth/drive.appdata")
+                )
+                googleCredential.selectedAccountName = email
+                googleDriveManager = GoogleDriveManager(googleCredential)
+            }
+        } else {
+            binding.layoutAccountInfo.visibility = View.GONE
+            googleDriveManager = null // Oturum kapalıysa manager'ı temizle
+        }
     }
 
     private fun setupListeners() {
@@ -400,7 +429,11 @@ class BackupActivity : AppCompatActivity() {
                         permanentDir.mkdirs()
                         val permanentFile = File(permanentDir, "img_restored_${System.currentTimeMillis()}_${note.id}.jpg")
                         sourceFile.copyTo(permanentFile, overwrite = true)
-                        newImagePath = Uri.fromFile(permanentFile).toString() + "?timestamp=" + System.currentTimeMillis()
+
+                        // *** DÜZELTME: FileProvider ile güvenli URI oluştur ***
+                        val authority = "${this@BackupActivity.packageName}.provider"
+                        val imageUri = FileProvider.getUriForFile(this@BackupActivity, authority, permanentFile)
+                        newImagePath = imageUri.toString()
                     }
                 }
                 var newAudioPath: String? = null
@@ -505,17 +538,13 @@ class BackupActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val credential = Identity.getSignInClient(this@BackupActivity).getSignInCredentialFromIntent(data)
-                val googleCredential = GoogleAccountCredential.usingOAuth2(
-                    this@BackupActivity,
-                    listOf("https://www.googleapis.com/auth/drive.appdata")
-                )
-                googleCredential.selectedAccountName = credential.id
-                this@BackupActivity.googleDriveManager = GoogleDriveManager(googleCredential)
 
-                // Show email
-                binding.tvAccountEmail.text = credential.id
-                binding.layoutAccountInfo.visibility = View.VISIBLE
+                // *** DÜZELTME: E-postayı SharedPreferences'e kaydet ***
+                val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this@BackupActivity)
+                sharedPrefs.edit().putString("LOGGED_IN_EMAIL", credential.id).apply()
 
+                // Manager'ı oluştur ve UI'ı güncelle
+                updateAccountInfoUI()
 
                 when (requestedAction) {
                     Action.BACKUP -> backupNotes(googleDriveManager!!)
@@ -543,8 +572,14 @@ class BackupActivity : AppCompatActivity() {
                 when (val deleteResult = googleDriveManager.deleteFile("snapnote_backup.json")) {
                     is DriveResult.Success -> {
                         Identity.getSignInClient(this@BackupActivity).signOut().await()
+
+                        // *** DÜZELTME: SharedPreferences'den e-postayı sil ***
+                        val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this@BackupActivity)
+                        sharedPrefs.edit().remove("LOGGED_IN_EMAIL").apply()
+
                         this@BackupActivity.googleDriveManager = null
                         withContext(Dispatchers.Main) {
+                            updateAccountInfoUI() // UI'ı temizle
                             if (!DataWipeManager.wipeAllData(this@BackupActivity)) {
                                 dismissProgressDialog()
                                 Toast.makeText(this@BackupActivity, "Hesap silinemedi.", Toast.LENGTH_LONG).show()
@@ -985,7 +1020,10 @@ class BackupActivity : AppCompatActivity() {
 
                     when(val result = googleDriveManager.downloadMediaFile(driveId, FileOutputStream(imageFile))) {
                         is DriveResult.Success -> {
-                            localImagePath = imageFile.absolutePath + "?timestamp=" + System.currentTimeMillis()
+                            // *** DÜZELTME: FileProvider ile güvenli URI oluştur ***
+                            val authority = "${this@BackupActivity.packageName}.provider"
+                            val imageUri = FileProvider.getUriForFile(this@BackupActivity, authority, imageFile)
+                            localImagePath = imageUri.toString()
                         }
                         is DriveResult.Error -> {
                             isDownloadSuccessful = false
@@ -1012,7 +1050,7 @@ class BackupActivity : AppCompatActivity() {
                 }
 
                 val finalContent = content.copy(imagePath = localImagePath, audioFilePath = localAudioPath)
-                restoredNotes.add(note.copy(content = gson.toJson(finalContent)))
+                restoredNotes.add(note.copy(id = 0, content = gson.toJson(finalContent)))
 
                 val progress = ((index + 1) * 95) / totalSteps
                 withContext(Dispatchers.Main) {
