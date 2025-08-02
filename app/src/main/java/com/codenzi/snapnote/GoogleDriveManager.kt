@@ -40,8 +40,7 @@ sealed class DriveResult<out T> {
  *
  * @param credential Google hesabına erişim için yetkilendirme bilgileri.
  */
-class GoogleDriveManager(private val credential: GoogleAccountCredential) {
-
+class GoogleDriveManager(internal val credential: GoogleAccountCredential) {
     private val drive: Drive by lazy {
         Drive.Builder(
             NetHttpTransport(),

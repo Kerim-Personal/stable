@@ -41,6 +41,7 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -48,6 +49,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import javax.inject.Inject
+import javax.net.ssl.HttpsURLConnection
 
 @AndroidEntryPoint
 class BackupActivity : AppCompatActivity() {
@@ -92,7 +94,7 @@ class BackupActivity : AppCompatActivity() {
                 }
             } else {
                 Log.w("BackupActivity", "User denied Google Drive permission.")
-                Toast.makeText(this, R.string.permission_not_granted_for_backup, Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.permission_not_granted_for_backup), Toast.LENGTH_LONG).show()
             }
         }
 
@@ -207,13 +209,10 @@ class BackupActivity : AppCompatActivity() {
             progressBar?.isIndeterminate = true
             progressPercentage?.visibility = View.GONE
         }
-
         val tempDir = File(cacheDir, "backup_temp")
-
         try {
             if (tempDir.exists()) tempDir.deleteRecursively()
             tempDir.mkdirs()
-
             val notesToBackup = noteDao.getAllNotes().first()
             if (notesToBackup.isEmpty()) {
                 withContext(Dispatchers.Main) {
@@ -222,7 +221,6 @@ class BackupActivity : AppCompatActivity() {
                 }
                 return
             }
-
             val filesToZip = mutableListOf<File>()
             val notesForJson = notesToBackup.map { note ->
                 val content = gson.fromJson(note.content, NoteContent::class.java)
@@ -536,10 +534,30 @@ class BackupActivity : AppCompatActivity() {
             }
             try {
                 googleDriveManager.deleteFile("snapnote_backup.json")
+
+                val token = googleDriveManager.credential.token
+                if (token != null) {
+                    try {
+                        val url = URL("https://oauth2.googleapis.com/revoke")
+                        val connection = url.openConnection() as HttpsURLConnection
+                        connection.requestMethod = "POST"
+                        connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+                        connection.doOutput = true
+                        val postData = "token=$token".toByteArray(Charsets.UTF_8)
+                        connection.outputStream.write(postData)
+                        val responseCode = connection.responseCode
+                        Log.i("BackupActivity", "Token revocation response code: $responseCode")
+                    } catch (e: IOException) {
+                        Log.e("BackupActivity", "Failed to revoke token", e)
+                    }
+                }
+
                 Identity.getSignInClient(this@BackupActivity).signOut().await()
+
                 val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this@BackupActivity)
                 sharedPrefs.edit().remove("LOGGED_IN_EMAIL").apply()
                 this@BackupActivity.googleDriveManager = null
+
                 withContext(Dispatchers.Main) {
                     updateAccountInfoUI()
                     if (!DataWipeManager.wipeAllData(this@BackupActivity)) {
