@@ -38,16 +38,19 @@
                 android:background="@drawable/bg_account_info_box"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="12dp"
+                android:paddingStart="12dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="6dp"
+                android:paddingBottom="12dp"
                 android:visibility="gone"
                 tools:visibility="visible">
 
                 <ImageView
                     android:layout_width="32dp"
                     android:layout_height="32dp"
+                    android:contentDescription="@string/google_logo_description"
                     android:src="@drawable/ic_google"
-                    app:tint="?attr/colorPrimary"
-                    android:contentDescription="Google Logo" />
+                    app:tint="?attr/colorPrimary" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -71,14 +74,24 @@
                         tools:text="kullanici.adi@gmail.com" />
                 </LinearLayout>
 
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_logout"
+                    style="@style/Widget.Material3.Button.TextButton.Icon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="48dp"
+                    android:minHeight="48dp"
+                    android:contentDescription="@string/sign_out_button_description"
+                    app:icon="@drawable/ic_logout" />
+
             </LinearLayout>
 
             <TextView
+                style="@style/TextAppearance.Material3.TitleMedium"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Google Drive"
-                android:textAppearance="?attr/textAppearanceTitleMedium"
-                android:layout_marginBottom="8dp"/>
+                android:layout_marginBottom="8dp"
+                android:text="@string/google_drive" />
 
             <Button
                 android:id="@+id/btn_google_drive_backup"
@@ -86,24 +99,24 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
-                app:icon="@drawable/cloud_upload"
-                android:text="@string/backup_to_drive_title" />
+                android:text="@string/backup_to_drive_title"
+                app:icon="@drawable/cloud_upload" />
 
             <Button
                 android:id="@+id/btn_google_drive_restore"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/cloud_download"
-                android:text="@string/restore_from_drive_title" />
+                android:text="@string/restore_from_drive_title"
+                app:icon="@drawable/cloud_download" />
 
             <TextView
+                style="@style/TextAppearance.Material3.TitleMedium"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
-                android:text="@string/local_backup_summary"
-                android:textAppearance="?attr/textAppearanceTitleMedium" />
+                android:text="@string/local_backup_summary" />
 
             <Button
                 android:id="@+id/btn_export_to_phone"
@@ -111,16 +124,16 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
-                app:icon="@drawable/ic_file_upload"
-                android:text="@string/export_to_phone_title" />
+                android:text="@string/export_to_phone_title"
+                app:icon="@drawable/ic_file_upload" />
 
             <Button
                 android:id="@+id/btn_import_from_phone"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_file_download"
-                android:text="@string/import_from_phone_title" />
+                android:text="@string/import_from_phone_title"
+                app:icon="@drawable/ic_file_download" />
 
             <View
                 android:layout_width="match_parent"
@@ -132,10 +145,11 @@
             <Button
                 android:id="@+id/btn_delete_account"
                 style="@style/MyOutlinedButton"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/outline_delete_24"
-                android:text="@string/delete_account_title" />
+                android:layout_gravity="center_horizontal"
+                android:text="@string/delete_account_title"
+                app:icon="@drawable/outline_delete_24" />
 
         </LinearLayout>
     </ScrollView>

@@ -81,19 +81,18 @@ class BackupActivity : AppCompatActivity() {
     private val requestAuthorizationLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
-                Log.i("BackupActivity", "Google Drive izni başarıyla verildi. İşlem kaldığı yerden devam ediyor.")
                 googleDriveManager?.let { manager ->
                     lifecycleScope.launch {
                         when (requestedAction) {
                             Action.BACKUP -> backupNotes(manager)
                             Action.RESTORE -> restoreNotes(manager)
-                            else -> Log.w("BackupActivity", "İzin sonrası beklenmedik eylem: $requestedAction")
+                            else -> Log.w("BackupActivity", getString(R.string.unexpected_action_after_permission, requestedAction.toString()))
                         }
                     }
                 }
             } else {
-                Log.w("BackupActivity", "Kullanıcı Google Drive iznini reddetti.")
-                Toast.makeText(this, "Yedekleme için gerekli izin verilmedi.", Toast.LENGTH_LONG).show()
+                Log.w("BackupActivity", "User denied Google Drive permission.")
+                Toast.makeText(this, R.string.permission_not_granted_for_backup, Toast.LENGTH_LONG).show()
             }
         }
 
@@ -126,13 +125,13 @@ class BackupActivity : AppCompatActivity() {
             }
         }
 
-        updateAccountInfoUI() // EKRAN İLK AÇILDIĞINDA OTURUM BİLGİSİNİ KONTROL ET
+        updateAccountInfoUI()
         setupListeners()
     }
 
     override fun onResume() {
         super.onResume()
-        updateAccountInfoUI() // EKRANA GERİ DÖNÜLDÜĞÜNDE TEKRAR KONTROL ET
+        updateAccountInfoUI()
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -147,7 +146,6 @@ class BackupActivity : AppCompatActivity() {
         if (email != null) {
             binding.layoutAccountInfo.visibility = View.VISIBLE
             binding.tvAccountEmail.text = email
-            // Oturum açılmışsa, GoogleDriveManager'ı yeniden oluştur
             if (googleDriveManager == null) {
                 val googleCredential = GoogleAccountCredential.usingOAuth2(
                     this,
@@ -158,7 +156,7 @@ class BackupActivity : AppCompatActivity() {
             }
         } else {
             binding.layoutAccountInfo.visibility = View.GONE
-            googleDriveManager = null // Oturum kapalıysa manager'ı temizle
+            googleDriveManager = null
         }
     }
 
@@ -183,6 +181,24 @@ class BackupActivity : AppCompatActivity() {
         binding.btnDeleteAccount.setOnClickListener {
             showDeleteAccountConfirmationDialog()
         }
+        binding.btnLogout.setOnClickListener {
+            signOut()
+        }
+    }
+
+    private fun signOut() {
+        lifecycleScope.launch {
+            try {
+                Identity.getSignInClient(this@BackupActivity).signOut().await()
+                val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this@BackupActivity)
+                sharedPrefs.edit().remove("LOGGED_IN_EMAIL").apply()
+                updateAccountInfoUI()
+                Toast.makeText(this@BackupActivity, getString(R.string.signed_out_successfully), Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Log.e("BackupActivity", "Sign out failed", e)
+                Toast.makeText(this@BackupActivity, getString(R.string.sign_out_failed), Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private suspend fun exportToDevice(uri: Uri) {
@@ -195,9 +211,7 @@ class BackupActivity : AppCompatActivity() {
         val tempDir = File(cacheDir, "backup_temp")
 
         try {
-            if (tempDir.exists()) {
-                tempDir.deleteRecursively()
-            }
+            if (tempDir.exists()) tempDir.deleteRecursively()
             tempDir.mkdirs()
 
             val notesToBackup = noteDao.getAllNotes().first()
@@ -210,42 +224,32 @@ class BackupActivity : AppCompatActivity() {
             }
 
             val filesToZip = mutableListOf<File>()
-
             val notesForJson = notesToBackup.map { note ->
                 val content = gson.fromJson(note.content, NoteContent::class.java)
                 var newImagePath: String? = null
-
                 content.imagePath?.let { path ->
                     try {
                         val cleanPath = path.substringBefore("?timestamp=")
                         val imageUri = Uri.parse(cleanPath)
                         val fileName = "img_${note.id}_${System.currentTimeMillis()}.jpg"
                         val destFile = File(tempDir, fileName)
-
                         val inputStream: InputStream? = if (imageUri.scheme == "content") {
                             contentResolver.openInputStream(imageUri)
                         } else {
                             val sourceFile = File(imageUri.path!!)
                             if (sourceFile.exists()) FileInputStream(sourceFile) else null
                         }
-
-                        inputStream?.use { input ->
-                            FileOutputStream(destFile).use { output ->
-                                input.copyTo(output)
-                            }
-                        }
-
+                        inputStream?.use { input -> FileOutputStream(destFile).use { output -> input.copyTo(output) } }
                         if (destFile.exists() && destFile.length() > 0) {
                             filesToZip.add(destFile)
                             newImagePath = destFile.name
                         } else {
-                            Log.w("BackupActivity", "Görsel kopyalanamadı veya boş: $path")
+                            Log.w("BackupActivity", getString(R.string.image_not_copied_or_empty, path))
                         }
                     } catch (e: Exception) {
-                        Log.e("BackupActivity", "Yerel dışa aktarma için görsel işlenirken hata: $path", e)
+                        Log.e("BackupActivity", getString(R.string.local_export_image_error, path), e)
                     }
                 }
-
                 var newAudioPath: String? = null
                 content.audioFilePath?.let { path ->
                     val sourceFile = File(path)
@@ -253,34 +257,30 @@ class BackupActivity : AppCompatActivity() {
                         val fileName = "aud_${note.id}_${sourceFile.name}"
                         val destFile = File(tempDir, fileName)
                         sourceFile.copyTo(destFile, overwrite = true)
-
                         if (destFile.exists() && destFile.length() > 0) {
                             filesToZip.add(destFile)
                             newAudioPath = destFile.name
                         } else {
-                            Log.w("BackupActivity", "Ses dosyası kopyalanamadı veya boş: $path")
+                            Log.w("BackupActivity", getString(R.string.audio_file_not_copied_or_empty, path))
                         }
                     } else {
-                        Log.w("BackupActivity", "Ses dosyası bulunamadı: $path")
+                        Log.w("BackupActivity", getString(R.string.audio_file_not_found, path))
                     }
                 }
                 val newContent = content.copy(imagePath = newImagePath, audioFilePath = newAudioPath)
                 note.copy(content = gson.toJson(newContent))
             }
-
             val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this)
             val appSettings = AppSettings(
                 themeSelection = sharedPrefs.getString("theme_selection", "system_default"),
                 colorSelection = sharedPrefs.getString("color_selection", "rose"),
                 widgetBackgroundSelection = sharedPrefs.getString("widget_background_selection", "widget_background")
             )
-
             val passwordHash = PasswordManager.getPasswordHash()
             val salt = PasswordManager.getSalt()
             val securityQuestion = PasswordManager.getSecurityQuestion()
             val securityAnswerHash = PasswordManager.getSecurityAnswerHash()
             val securitySalt = PasswordManager.getSecuritySalt()
-
             val backupData = BackupData(
                 settings = appSettings,
                 notes = notesForJson,
@@ -293,7 +293,6 @@ class BackupActivity : AppCompatActivity() {
             val jsonFile = File(tempDir, "backup.json")
             jsonFile.writeText(gson.toJson(backupData))
             filesToZip.add(jsonFile)
-
             contentResolver.openOutputStream(uri)?.use { outputStream ->
                 ZipOutputStream(BufferedOutputStream(outputStream)).use { zipOut ->
                     filesToZip.forEach { file ->
@@ -308,16 +307,14 @@ class BackupActivity : AppCompatActivity() {
                     }
                 }
             }
-
             withContext(Dispatchers.Main) {
                 dismissProgressDialog()
                 Toast.makeText(this@BackupActivity, getString(R.string.export_successful), Toast.LENGTH_LONG).show()
             }
-
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
                 dismissProgressDialog()
-                Toast.makeText(this@BackupActivity, getString(R.string.export_failed) + ": ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@BackupActivity, "${getString(R.string.export_failed)}: ${e.message}", Toast.LENGTH_LONG).show()
             }
             Log.e("BackupActivity", "exportToDevice failed", e)
         } finally {
@@ -329,27 +326,22 @@ class BackupActivity : AppCompatActivity() {
 
     private suspend fun importFromDevice(uri: Uri) {
         val tempDir = File(cacheDir, "import_temp").apply { mkdirs() }
-
         try {
             contentResolver.openInputStream(uri)?.use { inputStream ->
                 ZipInputStream(BufferedInputStream(inputStream)).use { zipIn ->
                     var entry: ZipEntry? = zipIn.nextEntry
                     while (entry != null) {
                         val outputFile = File(tempDir, entry.name)
-                        FileOutputStream(outputFile).use { fos ->
-                            zipIn.copyTo(fos)
-                        }
+                        FileOutputStream(outputFile).use { fos -> zipIn.copyTo(fos) }
                         entry = zipIn.nextEntry
                     }
                 }
             }
-
             val jsonFile = File(tempDir, "backup.json")
             if (!jsonFile.exists()) {
-                throw IOException("backup.json not found in ZIP file.")
+                throw IOException(getString(R.string.backup_json_not_found_in_zip))
             }
             val backupData: BackupData = gson.fromJson(jsonFile.readText(), object : TypeToken<BackupData>() {}.type)
-
             withContext(Dispatchers.Main) {
                 if (backupData.passwordHash != null) {
                     showRestoreAuthChoiceDialog(null, backupData, tempDir)
@@ -357,12 +349,11 @@ class BackupActivity : AppCompatActivity() {
                     showLocalRestoreConfirmationDialog(backupData, tempDir)
                 }
             }
-
         } catch (e: Exception) {
             tempDir.deleteRecursively()
             withContext(Dispatchers.Main) {
                 dismissProgressDialog()
-                Toast.makeText(this@BackupActivity, getString(R.string.import_failed) + ": ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@BackupActivity, "${getString(R.string.import_failed)}: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -372,11 +363,9 @@ class BackupActivity : AppCompatActivity() {
             .setTitle(getString(R.string.import_dialog_title))
             .setMessage(getString(R.string.import_dialog_message))
             .setPositiveButton(getString(R.string.restore_confirm)) { _, _ ->
-                lifecycleScope.launch {
-                    proceedWithLocalRestore(backupData, tempDir)
-                }
+                lifecycleScope.launch { proceedWithLocalRestore(backupData, tempDir) }
             }
-            .setNegativeButton(getString(R.string.dialog_cancel)) {_,_ ->
+            .setNegativeButton(getString(R.string.dialog_cancel)) { _, _ ->
                 tempDir.deleteRecursively()
             }
             .show()
@@ -387,7 +376,6 @@ class BackupActivity : AppCompatActivity() {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             hint = getString(R.string.enter_current_password_hint)
         }
-
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.password_required_title))
             .setMessage(getString(R.string.import_password_protected_message))
@@ -395,9 +383,7 @@ class BackupActivity : AppCompatActivity() {
             .setPositiveButton(getString(R.string.confirm_button)) { _, _ ->
                 val enteredPassword = editText.text.toString()
                 if (PasswordManager.checkPassword(enteredPassword, backupData.salt!!, backupData.passwordHash!!)) {
-                    lifecycleScope.launch {
-                        proceedWithLocalRestore(backupData, tempDir)
-                    }
+                    lifecycleScope.launch { proceedWithLocalRestore(backupData, tempDir) }
                 } else {
                     Toast.makeText(this, getString(R.string.incorrect_password), Toast.LENGTH_SHORT).show()
                     tempDir.deleteRecursively()
@@ -415,10 +401,8 @@ class BackupActivity : AppCompatActivity() {
             progressBar?.isIndeterminate = true
             progressPercentage?.visibility = View.GONE
         }
-
         try {
             noteDao.deleteAllNotes()
-
             val restoredNotes = backupData.notes.map { note ->
                 val content = gson.fromJson(note.content, NoteContent::class.java)
                 var newImagePath: String? = null
@@ -429,8 +413,6 @@ class BackupActivity : AppCompatActivity() {
                         permanentDir.mkdirs()
                         val permanentFile = File(permanentDir, "img_restored_${System.currentTimeMillis()}_${note.id}.jpg")
                         sourceFile.copyTo(permanentFile, overwrite = true)
-
-                        // *** DÜZELTME: FileProvider ile güvenli URI oluştur ***
                         val authority = "${this@BackupActivity.packageName}.provider"
                         val imageUri = FileProvider.getUriForFile(this@BackupActivity, authority, permanentFile)
                         newImagePath = imageUri.toString()
@@ -439,7 +421,7 @@ class BackupActivity : AppCompatActivity() {
                 var newAudioPath: String? = null
                 content.audioFilePath?.let { fileName ->
                     val sourceFile = File(tempDir, fileName)
-                    if(sourceFile.exists()){
+                    if (sourceFile.exists()) {
                         val permanentDir = getExternalFilesDir("AudioNotes")!!
                         permanentDir.mkdirs()
                         val permanentFile = File(permanentDir, "aud_restored_${System.currentTimeMillis()}_${note.id}.mp3")
@@ -450,18 +432,14 @@ class BackupActivity : AppCompatActivity() {
                 val newContent = content.copy(imagePath = newImagePath, audioFilePath = newAudioPath)
                 note.copy(id = 0, content = gson.toJson(newContent))
             }
-
             noteDao.insertAll(restoredNotes)
-
             val prefsEditor = PreferenceManager.getDefaultSharedPreferences(this).edit()
             prefsEditor.putString("theme_selection", backupData.settings.themeSelection)
             prefsEditor.putString("color_selection", backupData.settings.colorSelection ?: "rose")
             prefsEditor.putString("widget_background_selection", backupData.settings.widgetBackgroundSelection)
             prefsEditor.apply()
-
             PasswordManager.resetForRestore(this)
             PasswordManager.restoreAllSecurityCredentials(backupData)
-
             withContext(Dispatchers.Main) {
                 dismissProgressDialog()
                 Toast.makeText(this@BackupActivity, getString(R.string.import_successful), Toast.LENGTH_LONG).show()
@@ -470,11 +448,10 @@ class BackupActivity : AppCompatActivity() {
                 startActivity(intent)
                 finish()
             }
-
-        } catch(e: Exception) {
+        } catch (e: Exception) {
             withContext(Dispatchers.Main) {
                 dismissProgressDialog()
-                Toast.makeText(this@BackupActivity, getString(R.string.import_failed) + ": ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@BackupActivity, "${getString(R.string.import_failed)}: ${e.message}", Toast.LENGTH_LONG).show()
             }
         } finally {
             tempDir.deleteRecursively()
@@ -485,9 +462,7 @@ class BackupActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle(R.string.delete_account_title)
             .setMessage(R.string.delete_account_confirmation_message)
-            .setPositiveButton(R.string.dialog_yes) { _, _ ->
-                showFinalDeleteConfirmationDialog()
-            }
+            .setPositiveButton(R.string.dialog_yes) { _, _ -> showFinalDeleteConfirmationDialog() }
             .setNegativeButton(R.string.dialog_no, null)
             .show()
     }
@@ -516,14 +491,11 @@ class BackupActivity : AppCompatActivity() {
             }
             return
         }
-
         lifecycleScope.launch {
             val signInClient = Identity.getSignInClient(this@BackupActivity)
-
             val request = GetSignInIntentRequest.builder()
                 .setServerClientId(getString(R.string.your_web_client_id))
                 .build()
-
             try {
                 val result = signInClient.getSignInIntent(request).await()
                 googleSignInLauncher.launch(IntentSenderRequest.Builder(result).build())
@@ -538,25 +510,20 @@ class BackupActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val credential = Identity.getSignInClient(this@BackupActivity).getSignInCredentialFromIntent(data)
-
-                // *** DÜZELTME: E-postayı SharedPreferences'e kaydet ***
                 val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this@BackupActivity)
                 sharedPrefs.edit().putString("LOGGED_IN_EMAIL", credential.id).apply()
-
-                // Manager'ı oluştur ve UI'ı güncelle
                 updateAccountInfoUI()
-
                 when (requestedAction) {
-                    Action.BACKUP -> backupNotes(googleDriveManager!!)
-                    Action.RESTORE -> restoreNotes(googleDriveManager!!)
-                    Action.DELETE -> performAccountDeletion(googleDriveManager!!)
+                    Action.BACKUP -> googleDriveManager?.let { backupNotes(it) }
+                    Action.RESTORE -> googleDriveManager?.let { restoreNotes(it) }
+                    Action.DELETE -> googleDriveManager?.let { performAccountDeletion(it) }
                     else -> {}
                 }
             } catch (e: ApiException) {
                 Log.w("BackupActivity", "signInResult:failed code=" + e.statusCode, e)
                 Toast.makeText(this@BackupActivity, getString(R.string.sign_in_error_try_again), Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
-                Log.e("BackupActivity", "handleSignInResult'ta genel hata", e)
+                Log.e("BackupActivity", getString(R.string.error_in_handle_sign_in_result), e)
                 Toast.makeText(this@BackupActivity, getString(R.string.an_unknown_error_occurred), Toast.LENGTH_LONG).show()
             }
         }
@@ -567,27 +534,17 @@ class BackupActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 showProgressDialog(R.string.delete_in_progress)
             }
-
             try {
-                when (val deleteResult = googleDriveManager.deleteFile("snapnote_backup.json")) {
-                    is DriveResult.Success -> {
-                        Identity.getSignInClient(this@BackupActivity).signOut().await()
-
-                        // *** DÜZELTME: SharedPreferences'den e-postayı sil ***
-                        val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this@BackupActivity)
-                        sharedPrefs.edit().remove("LOGGED_IN_EMAIL").apply()
-
-                        this@BackupActivity.googleDriveManager = null
-                        withContext(Dispatchers.Main) {
-                            updateAccountInfoUI() // UI'ı temizle
-                            if (!DataWipeManager.wipeAllData(this@BackupActivity)) {
-                                dismissProgressDialog()
-                                Toast.makeText(this@BackupActivity, "Hesap silinemedi.", Toast.LENGTH_LONG).show()
-                            }
-                        }
-                    }
-                    is DriveResult.Error -> {
-                        throw deleteResult.exception
+                googleDriveManager.deleteFile("snapnote_backup.json")
+                Identity.getSignInClient(this@BackupActivity).signOut().await()
+                val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this@BackupActivity)
+                sharedPrefs.edit().remove("LOGGED_IN_EMAIL").apply()
+                this@BackupActivity.googleDriveManager = null
+                withContext(Dispatchers.Main) {
+                    updateAccountInfoUI()
+                    if (!DataWipeManager.wipeAllData(this@BackupActivity)) {
+                        dismissProgressDialog()
+                        Toast.makeText(this@BackupActivity, getString(R.string.account_could_not_be_deleted), Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
@@ -595,7 +552,7 @@ class BackupActivity : AppCompatActivity() {
                     dismissProgressDialog()
                     Toast.makeText(this@BackupActivity, getString(R.string.account_deletion_failed_with_error, e.message), Toast.LENGTH_LONG).show()
                 }
-                Log.e("BackupActivity", "Account deletion failed", e)
+                Log.e("BackupActivity", getString(R.string.account_deletion_failed_log), e)
             }
         }
     }
@@ -604,23 +561,18 @@ class BackupActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val localNotes = noteDao.getAllNotes().first()
-
                 if (localNotes.isEmpty()) {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(this@BackupActivity, getString(R.string.no_notes_to_backup), Toast.LENGTH_SHORT).show()
                     }
                     return@launch
                 }
-
                 withContext(Dispatchers.Main) {
                     showProgressDialog(R.string.searching_for_backups)
                 }
-
                 when (val result = googleDriveManager.getBackupFiles()) {
                     is DriveResult.Success -> {
-                        withContext(Dispatchers.Main){
-                            dismissProgressDialog()
-                        }
+                        withContext(Dispatchers.Main) { dismissProgressDialog() }
                         val existingBackup = result.data.firstOrNull()
                         withContext(Dispatchers.Main) {
                             if (existingBackup != null) {
@@ -628,35 +580,26 @@ class BackupActivity : AppCompatActivity() {
                                     .setTitle(getString(R.string.existing_backup_found_title))
                                     .setMessage(getString(R.string.existing_backup_found_message))
                                     .setPositiveButton(getString(R.string.overwrite_button)) { _, _ ->
-                                        lifecycleScope.launch(Dispatchers.IO) {
-                                            proceedWithBackup(googleDriveManager, localNotes)
-                                        }
+                                        lifecycleScope.launch(Dispatchers.IO) { proceedWithBackup(googleDriveManager, localNotes) }
                                     }
                                     .setNegativeButton(getString(R.string.dialog_cancel), null)
                                     .show()
                             } else {
-                                lifecycleScope.launch(Dispatchers.IO) {
-                                    proceedWithBackup(googleDriveManager, localNotes)
-                                }
+                                lifecycleScope.launch(Dispatchers.IO) { proceedWithBackup(googleDriveManager, localNotes) }
                             }
                         }
                     }
-                    is DriveResult.Error -> {
-                        throw result.exception
-                    }
+                    is DriveResult.Error -> throw result.exception
                 }
             } catch (e: UserRecoverableAuthIOException) {
                 withContext(Dispatchers.Main) {
                     dismissProgressDialog()
-                    Log.w("BackupActivity", "Google Drive izni gerekli. Kullanıcı onayı isteniyor.", e)
+                    Log.w("BackupActivity", getString(R.string.google_drive_permission_needed_log), e)
                     requestAuthorizationLauncher.launch(e.intent)
                 }
-            }
-            catch (e: Exception) {
-                withContext(Dispatchers.Main){
-                    dismissProgressDialog()
-                }
-                showError("Error during backup check", e)
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { dismissProgressDialog() }
+                showError(getString(R.string.backup_check_error), e)
             }
         }
     }
@@ -667,9 +610,7 @@ class BackupActivity : AppCompatActivity() {
             progressPercentage?.visibility = View.VISIBLE
             progressBar?.isIndeterminate = false
         }
-
         val tempDir = File(cacheDir, "backup_temp").apply { if (exists()) deleteRecursively(); mkdirs() }
-
         try {
             val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this)
             val appSettings = AppSettings(
@@ -677,66 +618,53 @@ class BackupActivity : AppCompatActivity() {
                 colorSelection = sharedPrefs.getString("color_selection", "rose"),
                 widgetBackgroundSelection = sharedPrefs.getString("widget_background_selection", "widget_background")
             )
-
             val passwordHash = PasswordManager.getPasswordHash()
             val salt = PasswordManager.getSalt()
             val securityQuestion = PasswordManager.getSecurityQuestion()
             val securityAnswerHash = PasswordManager.getSecurityAnswerHash()
             val securitySalt = PasswordManager.getSecuritySalt()
-
             val notesForBackup = mutableListOf<Note>()
             val totalSteps = notesToBackup.size + 1
-
             for ((index, note) in notesToBackup.withIndex()) {
                 val content = gson.fromJson(note.content, NoteContent::class.java)
                 var imageDriveId: String? = null
-
                 content.imagePath?.let { path ->
                     try {
                         val cleanPath = path.substringBefore("?timestamp=")
                         val imageUri = Uri.parse(cleanPath)
                         val tempFile = File(tempDir, "temp_image_${System.currentTimeMillis()}.jpg")
-
                         val inputStream: InputStream? = if (imageUri.scheme == "content") {
                             contentResolver.openInputStream(imageUri)
                         } else {
                             val sourceFile = File(imageUri.path!!)
                             if (sourceFile.exists()) FileInputStream(sourceFile) else null
                         }
-
                         inputStream?.use { input ->
-                            FileOutputStream(tempFile).use { output ->
-                                input.copyTo(output)
-                            }
+                            FileOutputStream(tempFile).use { output -> input.copyTo(output) }
                             when (val result = googleDriveManager.uploadMediaFile(tempFile, "image/jpeg")) {
                                 is DriveResult.Success -> imageDriveId = result.data
-                                is DriveResult.Error -> Log.e("BackupActivity", "Görsel yüklenemedi: ${result.exception.message}")
+                                is DriveResult.Error -> Log.e("BackupActivity", getString(R.string.image_upload_failed, result.exception.message))
                             }
                         }
                     } catch (e: Exception) {
-                        Log.e("BackupActivity", "Drive'a yedekleme için görsel işlenirken hata oluştu: $path", e)
+                        Log.e("BackupActivity", getString(R.string.drive_backup_image_error, path), e)
                     }
                 }
-
                 var audioDriveId: String? = null
                 content.audioFilePath?.let { path ->
                     val audioFile = File(path)
                     if (audioFile.exists()) {
                         when (val result = googleDriveManager.uploadMediaFile(audioFile, "audio/mp4")) {
                             is DriveResult.Success -> audioDriveId = result.data
-                            is DriveResult.Error -> Log.e("BackupActivity", "Ses dosyası yüklenemedi: ${result.exception.message}")
+                            is DriveResult.Error -> Log.e("BackupActivity", getString(R.string.audio_upload_failed, result.exception.message))
                         }
                     }
                 }
                 val newContent = content.copy(imagePath = imageDriveId, audioFilePath = audioDriveId)
                 notesForBackup.add(note.copy(content = gson.toJson(newContent)))
-
                 val progress = ((index + 1) * 100) / totalSteps
-                withContext(Dispatchers.Main) {
-                    updateProgress(progress)
-                }
+                withContext(Dispatchers.Main) { updateProgress(progress) }
             }
-
             val backupData = BackupData(
                 settings = appSettings,
                 notes = notesForBackup,
@@ -747,8 +675,7 @@ class BackupActivity : AppCompatActivity() {
                 securitySalt = securitySalt
             )
             val backupJson = gson.toJson(backupData)
-
-            when (val result = googleDriveManager.uploadJsonBackup("snapnote_backup.json", backupJson)) {
+            when (googleDriveManager.uploadJsonBackup("snapnote_backup.json", backupJson)) {
                 is DriveResult.Success -> {
                     withContext(Dispatchers.Main) {
                         updateProgress(100)
@@ -764,10 +691,8 @@ class BackupActivity : AppCompatActivity() {
                 }
             }
         } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                dismissProgressDialog()
-            }
-            showError("Backup failed", e)
+            withContext(Dispatchers.Main) { dismissProgressDialog() }
+            showError(getString(R.string.backup_failed_log), e)
         } finally {
             tempDir.deleteRecursively()
         }
@@ -776,10 +701,7 @@ class BackupActivity : AppCompatActivity() {
     private fun restoreNotes(googleDriveManager: GoogleDriveManager) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                withContext(Dispatchers.Main) {
-                    showProgressDialog(R.string.searching_for_backups)
-                }
-
+                withContext(Dispatchers.Main) { showProgressDialog(R.string.searching_for_backups) }
                 when (val filesResult = googleDriveManager.getBackupFiles()) {
                     is DriveResult.Success -> {
                         val backupFile = filesResult.data.firstOrNull()
@@ -790,7 +712,6 @@ class BackupActivity : AppCompatActivity() {
                             }
                             return@launch
                         }
-
                         when (val contentResult = googleDriveManager.downloadJsonBackup(backupFile.id)) {
                             is DriveResult.Success -> {
                                 val jsonContent = contentResult.data
@@ -806,7 +727,7 @@ class BackupActivity : AppCompatActivity() {
                                 if (backupData.notes.isEmpty()) {
                                     withContext(Dispatchers.Main) {
                                         dismissProgressDialog()
-                                        Toast.makeText(this@BackupActivity, "Yedek dosyası bulundu ancak içerisinde geri yüklenecek not yok.", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(this@BackupActivity, getString(R.string.backup_found_no_notes), Toast.LENGTH_LONG).show()
                                     }
                                     return@launch
                                 }
@@ -827,15 +748,12 @@ class BackupActivity : AppCompatActivity() {
             } catch (e: UserRecoverableAuthIOException) {
                 withContext(Dispatchers.Main) {
                     dismissProgressDialog()
-                    Log.w("BackupActivity", "Google Drive izni gerekli. Kullanıcı onayı isteniyor.", e)
+                    Log.w("BackupActivity", getString(R.string.google_drive_permission_needed_log), e)
                     requestAuthorizationLauncher.launch(e.intent)
                 }
-            }
-            catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    dismissProgressDialog()
-                }
-                showError(getString(R.string.restore_failed), e)
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { dismissProgressDialog() }
+                showError(getString(R.string.restore_failed_log), e)
             }
         }
     }
@@ -849,14 +767,14 @@ class BackupActivity : AppCompatActivity() {
             .setTitle(getString(R.string.restore_auth_title))
             .setItems(options) { _, which ->
                 when (which) {
-                    0 -> { // Şifremi Biliyorum
+                    0 -> {
                         if (googleDriveManager != null) {
                             showPasswordPromptForRestore(googleDriveManager, backupData)
                         } else if (tempDir != null) {
                             showPasswordPromptForLocalRestore(backupData, tempDir)
                         }
                     }
-                    1 -> { // Şifremi Unuttum
+                    1 -> {
                         if (googleDriveManager != null) {
                             showSecurityQuestionPromptForRestore(googleDriveManager, backupData)
                         } else if (tempDir != null) {
@@ -874,13 +792,10 @@ class BackupActivity : AppCompatActivity() {
     private fun showSecurityQuestionPromptForRestore(googleDriveManager: GoogleDriveManager, backupData: BackupData) {
         val securityQuestion = backupData.securityQuestion
         if (securityQuestion.isNullOrBlank()) {
-            Toast.makeText(this, "Bu yedekte güvenlik sorusu bulunmuyor.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.no_security_question_in_backup), Toast.LENGTH_LONG).show()
             return
         }
-
-        val answerInput = EditText(this).apply {
-            hint = getString(R.string.hint_security_answer)
-        }
+        val answerInput = EditText(this).apply { hint = getString(R.string.hint_security_answer) }
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             val padding = (16 * resources.displayMetrics.density).toInt()
@@ -893,16 +808,13 @@ class BackupActivity : AppCompatActivity() {
             addView(questionText)
             addView(answerInput)
         }
-
         AlertDialog.Builder(this)
             .setTitle(R.string.security_question_title)
             .setView(layout)
             .setPositiveButton(R.string.submit_button) { _, _ ->
                 val answer = answerInput.text.toString()
                 if (PasswordManager.checkPassword(answer, backupData.securitySalt!!, backupData.securityAnswerHash!!)) {
-                    lifecycleScope.launch(Dispatchers.IO) {
-                        proceedWithRestore(googleDriveManager, backupData)
-                    }
+                    lifecycleScope.launch(Dispatchers.IO) { proceedWithRestore(googleDriveManager, backupData) }
                 } else {
                     Toast.makeText(this, R.string.incorrect_security_answer, Toast.LENGTH_SHORT).show()
                 }
@@ -914,14 +826,11 @@ class BackupActivity : AppCompatActivity() {
     private fun showSecurityQuestionPromptForLocalRestore(backupData: BackupData, tempDir: File) {
         val securityQuestion = backupData.securityQuestion
         if (securityQuestion.isNullOrBlank()) {
-            Toast.makeText(this, "Bu yedekte güvenlik sorusu bulunmuyor.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.no_security_question_in_backup), Toast.LENGTH_LONG).show()
             tempDir.deleteRecursively()
             return
         }
-
-        val answerInput = EditText(this).apply {
-            hint = getString(R.string.hint_security_answer)
-        }
+        val answerInput = EditText(this).apply { hint = getString(R.string.hint_security_answer) }
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             val padding = (16 * resources.displayMetrics.density).toInt()
@@ -934,16 +843,13 @@ class BackupActivity : AppCompatActivity() {
             addView(questionText)
             addView(answerInput)
         }
-
         AlertDialog.Builder(this)
             .setTitle(R.string.security_question_title)
             .setView(layout)
             .setPositiveButton(R.string.submit_button) { _, _ ->
                 val answer = answerInput.text.toString()
                 if (PasswordManager.checkPassword(answer, backupData.securitySalt!!, backupData.securityAnswerHash!!)) {
-                    lifecycleScope.launch {
-                        proceedWithLocalRestore(backupData, tempDir)
-                    }
+                    lifecycleScope.launch { proceedWithLocalRestore(backupData, tempDir) }
                 } else {
                     Toast.makeText(this, R.string.incorrect_security_answer, Toast.LENGTH_SHORT).show()
                     tempDir.deleteRecursively()
@@ -960,9 +866,7 @@ class BackupActivity : AppCompatActivity() {
             .setTitle(getString(R.string.restore_dialog_title))
             .setMessage(getString(R.string.restore_from_drive_dialog_message))
             .setPositiveButton(getString(R.string.restore_confirm)) { _, _ ->
-                lifecycleScope.launch(Dispatchers.IO) {
-                    proceedWithRestore(googleDriveManager, backupData)
-                }
+                lifecycleScope.launch(Dispatchers.IO) { proceedWithRestore(googleDriveManager, backupData) }
             }
             .setNegativeButton(getString(R.string.dialog_cancel), null)
             .show()
@@ -973,7 +877,6 @@ class BackupActivity : AppCompatActivity() {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             hint = getString(R.string.enter_current_password_hint)
         }
-
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.password_required_title))
             .setMessage(getString(R.string.backup_password_protected_message))
@@ -982,9 +885,7 @@ class BackupActivity : AppCompatActivity() {
                 val enteredPassword = editText.text.toString()
                 if (backupData.passwordHash != null && backupData.salt != null) {
                     if (PasswordManager.checkPassword(enteredPassword, backupData.salt, backupData.passwordHash)) {
-                        lifecycleScope.launch(Dispatchers.IO) {
-                            proceedWithRestore(googleDriveManager, backupData)
-                        }
+                        lifecycleScope.launch(Dispatchers.IO) { proceedWithRestore(googleDriveManager, backupData) }
                     } else {
                         Toast.makeText(this, getString(R.string.incorrect_password), Toast.LENGTH_SHORT).show()
                     }
@@ -1000,27 +901,21 @@ class BackupActivity : AppCompatActivity() {
             progressPercentage?.visibility = View.VISIBLE
             progressBar?.isIndeterminate = false
         }
-
         val restoredNotes = mutableListOf<Note>()
         var isDownloadSuccessful = true
-
         try {
             val notesFromBackup = backupData.notes
             val totalSteps = notesFromBackup.size + 1
-
             notesFromBackup.forEachIndexed { index, note ->
                 if (!isDownloadSuccessful) return@forEachIndexed
-
                 val content = gson.fromJson(note.content, NoteContent::class.java)
                 var localImagePath: String? = null
                 content.imagePath?.let { driveId ->
                     val imageDir = getExternalFilesDir("Images")!!
                     imageDir.mkdirs()
                     val imageFile = File(imageDir, "IMG_RESTORED_${System.currentTimeMillis()}.jpg")
-
-                    when(val result = googleDriveManager.downloadMediaFile(driveId, FileOutputStream(imageFile))) {
+                    when (val result = googleDriveManager.downloadMediaFile(driveId, FileOutputStream(imageFile))) {
                         is DriveResult.Success -> {
-                            // *** DÜZELTME: FileProvider ile güvenli URI oluştur ***
                             val authority = "${this@BackupActivity.packageName}.provider"
                             val imageUri = FileProvider.getUriForFile(this@BackupActivity, authority, imageFile)
                             localImagePath = imageUri.toString()
@@ -1031,46 +926,34 @@ class BackupActivity : AppCompatActivity() {
                         }
                     }
                 }
-
                 var localAudioPath: String? = null
                 content.audioFilePath?.let { driveId ->
                     val audioDir = getExternalFilesDir("AudioNotes")!!
                     audioDir.mkdirs()
                     val audioFile = File(audioDir, "AUD_RESTORED_${System.currentTimeMillis()}.mp3")
-
-                    when(val result = googleDriveManager.downloadMediaFile(driveId, FileOutputStream(audioFile))) {
-                        is DriveResult.Success -> {
-                            localAudioPath = audioFile.absolutePath
-                        }
+                    when (val result = googleDriveManager.downloadMediaFile(driveId, FileOutputStream(audioFile))) {
+                        is DriveResult.Success -> { localAudioPath = audioFile.absolutePath }
                         is DriveResult.Error -> {
                             isDownloadSuccessful = false
                             audioFile.delete()
                         }
                     }
                 }
-
                 val finalContent = content.copy(imagePath = localImagePath, audioFilePath = localAudioPath)
                 restoredNotes.add(note.copy(id = 0, content = gson.toJson(finalContent)))
-
                 val progress = ((index + 1) * 95) / totalSteps
-                withContext(Dispatchers.Main) {
-                    updateProgress(progress)
-                }
+                withContext(Dispatchers.Main) { updateProgress(progress) }
             }
-
             if (isDownloadSuccessful) {
                 noteDao.deleteAllNotes()
                 noteDao.insertAll(restoredNotes)
-
                 val prefsEditor = PreferenceManager.getDefaultSharedPreferences(this).edit()
                 prefsEditor.putString("theme_selection", backupData.settings.themeSelection)
                 prefsEditor.putString("color_selection", backupData.settings.colorSelection ?: "rose")
                 prefsEditor.putString("widget_background_selection", backupData.settings.widgetBackgroundSelection)
                 prefsEditor.apply()
-
                 PasswordManager.resetForRestore(this)
                 PasswordManager.restoreAllSecurityCredentials(backupData)
-
                 withContext(Dispatchers.Main) {
                     updateProgress(100)
                     dismissProgressDialog()
@@ -1081,9 +964,8 @@ class BackupActivity : AppCompatActivity() {
                     finish()
                 }
             } else {
-                throw IOException("Medya dosyası indirilemedi, işlem iptal edildi.")
+                throw IOException(getString(R.string.media_download_failed_restore_cancelled))
             }
-
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
                 dismissProgressDialog()
@@ -1103,15 +985,12 @@ class BackupActivity : AppCompatActivity() {
         val builder = AlertDialog.Builder(this)
         val inflater = this.layoutInflater
         val dialogView = inflater.inflate(R.layout.dialog_progress, null)
-
         progressBar = dialogView.findViewById(R.id.progress_bar)
         progressTitle = dialogView.findViewById(R.id.tv_progress_title)
         progressPercentage = dialogView.findViewById(R.id.tv_progress_percentage)
-
         progressTitle?.text = getString(titleResId)
         progressBar?.isIndeterminate = true
         progressPercentage?.visibility = View.GONE
-
         builder.setView(dialogView)
         builder.setCancelable(false)
         progressDialog = builder.create()

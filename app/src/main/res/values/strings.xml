@@ -311,6 +311,39 @@
     <string name="upload_successful">Backup successfully uploaded to Drive!</string>
     <string name="upload_failed">Upload to Drive failed</string>
 
+    <string name="sign_out_button">Sign Out</string>
+    <string name="signed_out_successfully">Signed out successfully.</string>
+    <string name="sign_out_failed">Failed to sign out.</string>
+    <string name="logged_in_as">Logged in as:</string>
+
+    <string name="google_logo_description">Google Logo</string>
+    <string name="sign_out_button_description">Sign out</string>
+    <string name="google_drive">Google Drive</string>
+
+    <string name="google_drive_permission_needed_log">Google Drive izni gerekli. Kullanıcı onayı isteniyor.</string>
+    <string name="unexpected_action_after_permission">İzin sonrası beklenmedik eylem: %1$s</string>
+    <string name="backup_check_error">Yedekleme kontrolü sırasında hata.</string>
+    <string name="backup_failed_log">Yedekleme başarısız oldu</string>
+    <string name="restore_failed_log">Geri yükleme başarısız oldu</string>
+    <string name="backup_found_no_notes">Yedek dosyası bulundu ancak içerisinde geri yüklenecek not yok.</string>
+    <string name="media_download_failed_restore_cancelled">Medya dosyası indirilemedi, işlem iptal edildi.</string>
+    <string name="error_in_handle_sign_in_result">handleSignInResult\'ta genel hata</string>
+    <string name="account_deletion_failed_log">Hesap silme başarısız oldu</string>
+    <string name="account_could_not_be_deleted">Hesap silinemedi.</string>
+    <string name="local_export_image_error">Yerel dışa aktarma için görsel işlenirken hata: %1$s</string>
+    <string name="image_not_copied_or_empty">Görsel kopyalanamadı veya boş: %1$s</string>
+    <string name="audio_file_not_copied_or_empty">Ses dosyası kopyalanamadı veya boş: %1$s</string>
+    <string name="audio_file_not_found">Ses dosyası bulunamadı: %1$s</string>
+    <string name="backup_json_not_found_in_zip">backup.json dosyası ZIP içinde bulunamadı.</string>
+    <string name="drive_backup_image_error">Drive\'a yedekleme için görsel işlenirken hata oluştu: %1$s</string>
+    <string name="image_upload_failed">Görsel yüklenemedi: %1$s</string>
+    <string name="audio_upload_failed">Ses dosyası yüklenemedi: %1$s</string>
+    <string name="no_security_question_in_backup">Bu yedekte güvenlik sorusu bulunmuyor.</string>
+    <string name="permission_not_granted_for_backup">Yedekleme için gerekli izin verilmedi.</string>
+
+
+
+
 
 
 </resources>
