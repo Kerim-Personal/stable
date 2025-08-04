@@ -28,6 +28,10 @@ googleHttpAndroid = "1.47.1"
 googleApiServicesDrive = "v3-rev20220815-2.0.0"
 hilt = "2.51.1"
 credentials = "1.2.2"
+googleGmsGoogleServices = "4.4.3"
+firebaseAnalytics = "23.0.0"
+firebaseCrashlytics = "20.0.0"
+googleFirebaseCrashlytics = "3.0.5"
 
 [libraries]
 # AndroidX ve Temel Kütüphaneler
@@ -76,6 +80,8 @@ google-api-services-drive = { group = "com.google.apis", name = "google-api-serv
 # google-oauth-client ve google-http-client-android kaldırıldı ve yerlerine daha stabil olanlar eklendi.
 google-oauth-client-jetty = { group = "com.google.oauth-client", name = "google-oauth-client-jetty", version.ref = "googleOauthClient" }
 google-http-client-gson = { group = "com.google.http-client", name = "google-http-client-gson", version.ref = "googleHttpAndroid" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics", version.ref = "firebaseAnalytics" }
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics", version.ref = "firebaseCrashlytics" }
 # --- DÜZELTME SONU ---
 
 [plugins]
@@ -83,3 +89,5 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 google-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+google-gms-google-services = { id = "com.google.gms.google-services", version.ref = "googleGmsGoogleServices" }
+google-firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "googleFirebaseCrashlytics" }

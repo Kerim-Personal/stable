@@ -7,6 +7,8 @@ plugins {
     alias(libs.plugins.google.ksp)
     alias(libs.plugins.hilt.android)
     id("org.jetbrains.kotlin.plugin.serialization") version "2.0.0"
+    alias(libs.plugins.google.gms.google.services)
+    alias(libs.plugins.google.firebase.crashlytics)
 }
 
 val localProperties = Properties()
@@ -32,8 +34,8 @@ android {
         applicationId = "com.codenzi.snapnote"
         minSdk = 24
         targetSdk = 36
-        versionCode = 27
-        versionName = "1.2.7"
+        versionCode = 29
+        versionName = "1.2.9"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -72,6 +74,8 @@ android {
 dependencies {
     // Hilt bağımlılıkları
     implementation(libs.hilt.android)
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.crashlytics)
     ksp(libs.hilt.compiler)
 
     // AndroidX ve diğer temel kütüphaneler

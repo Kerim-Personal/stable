@@ -5,4 +5,6 @@ plugins {
     alias(libs.plugins.google.ksp) apply false
     // GÜNCELLEME: Buradaki hard-coded versiyon kaldırıldı ve alias kullanıldı.
     alias(libs.plugins.hilt.android) apply false
+    alias(libs.plugins.google.gms.google.services) apply false
+    alias(libs.plugins.google.firebase.crashlytics) apply false
 }
